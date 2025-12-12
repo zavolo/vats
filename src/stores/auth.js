@@ -6,7 +6,7 @@ import router from '@/router'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem('token') || null,
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    user: null,
     loading: false,
     error: null
   }),
@@ -57,7 +57,6 @@ export const useAuthStore = defineStore('auth', {
       try {
         const response = await authAPI.getCurrentUser()
         this.user = response.data
-        localStorage.setItem('user', JSON.stringify(this.user))
         const permissionsStore = usePermissionsStore()
         await permissionsStore.fetchPermissions()
       } catch (error) {
@@ -70,7 +69,6 @@ export const useAuthStore = defineStore('auth', {
       this.token = null
       this.user = null
       localStorage.removeItem('token')
-      localStorage.removeItem('user')
       const permissionsStore = usePermissionsStore()
       permissionsStore.clear()
       router.push('/login')

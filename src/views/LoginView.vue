@@ -3,7 +3,7 @@
     <el-card class="login-card">
       <template #header>
         <div class="card-header">
-          <h2>{{ isRegister ? 'Регистрация' : 'Вход в систему' }}</h2>
+          <h2>{{ isRegister ? 'Регистрация' : 'Авторизация' }}</h2>
         </div>
       </template>
 
@@ -14,10 +14,10 @@
         label-position="top"
         @submit.prevent="handleSubmit"
       >
-        <el-form-item label="Имя пользователя" prop="username">
+        <el-form-item label="Логин" prop="username">
           <el-input
             v-model="form.username"
-            placeholder="Введите имя пользователя"
+            placeholder="Введите логин"
             size="large"
           />
         </el-form-item>
@@ -34,7 +34,7 @@
         <el-form-item v-if="isRegister" label="Телефон" prop="phone">
           <el-input
             v-model="form.phone"
-            placeholder="Введите телефон (необязательно)"
+            placeholder="Введите телефон"
             size="large"
           />
         </el-form-item>
@@ -58,14 +58,6 @@
             show-password
           />
         </el-form-item>
-
-        <el-alert
-          v-if="authStore.error"
-          :title="authStore.error"
-          type="error"
-          :closable="false"
-          style="margin-bottom: 20px"
-        />
 
         <el-form-item>
           <el-button
@@ -116,16 +108,18 @@ const validateConfirmPassword = (rule, value, callback) => {
 
 const rules = reactive({
   username: [
-    { required: true, message: 'Введите имя пользователя', trigger: 'blur' },
+    { required: true, message: 'Введите логин', trigger: 'blur' },
     { min: 3, message: 'Минимум 3 символа', trigger: 'blur' }
   ],
   email: [
     { required: true, message: 'Введите email', trigger: 'blur' },
     { type: 'email', message: 'Неверный формат email', trigger: 'blur' }
   ],
+  phone: [
+    { required: true, message: 'Введите телефон', trigger: 'blur' }
+  ],
   password: [
-    { required: true, message: 'Введите пароль', trigger: 'blur' },
-    { min: 5, message: 'Минимум 5 символов', trigger: 'blur' }
+    { required: true, message: 'Введите пароль', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: 'Подтвердите пароль', trigger: 'blur' },
@@ -147,7 +141,7 @@ const handleSubmit = async () => {
       await authStore.register({
         username: form.username,
         email: form.email,
-        phone: form.phone || null,
+        phone: form.phone,
         password: form.password
       })
       ElMessage.success('Регистрация успешна!')
@@ -157,13 +151,15 @@ const handleSubmit = async () => {
     }
   } catch (error) {
     if (error.response?.data?.detail) {
-      if (Array.isArray(error.response.data.detail)) {
-        error.response.data.detail.forEach(err => {
-          ElMessage.error(`${err.field}: ${err.message}`)
-        })
+      const detail = error.response.data.detail
+      if (Array.isArray(detail)) {
+        const message = detail.map(err => `${err.field}: ${err.message}`).join(', ')
+        ElMessage.error(message)
       } else {
-        ElMessage.error(error.response.data.detail)
+        ElMessage.error(detail)
       }
+    } else {
+      ElMessage.error('Произошла ошибка')
     }
   }
 }

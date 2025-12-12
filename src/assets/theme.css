@@ -105,7 +105,7 @@ body {
 }
 
 .el-dropdown-menu__item:hover {
-  background-color: var(--el-color-primary-dark-2);
+  background-color: var(--el-fill-color-light);
   color: var(--el-text-color-primary);
 }
 

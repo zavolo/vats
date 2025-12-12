@@ -3,7 +3,13 @@
     <el-container>
       <el-header class="header">
         <div class="header-left">
-          <h2>CloudPBX - Виртуальная АТС</h2>
+          <el-button 
+            :icon="Expand" 
+            circle 
+            @click="toggleSidebar"
+            class="sidebar-toggle"
+          />
+          <h2>Виртуальная АТС</h2>
         </div>
         <div class="header-right">
           <el-space :size="20">
@@ -39,11 +45,13 @@
       </el-header>
 
       <el-container>
-        <el-aside width="250px" class="sidebar">
+        <el-aside :width="sidebarCollapsed ? '64px' : '250px'" class="sidebar">
           <el-menu
             :default-active="activeMenu"
             router
             class="sidebar-menu"
+            :collapse="sidebarCollapsed"
+            :collapse-transition="false"
           >
             <el-menu-item 
               v-for="item in menuItems" 
@@ -60,7 +68,7 @@
           <div class="welcome-section">
             <el-row :gutter="20">
               <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card">
+                <el-card class="stat-card" v-loading="loading">
                   <el-statistic title="Всего звонков" :value="stats.totalCalls">
                     <template #prefix>
                       <el-icon style="color: #409eff"><Phone /></el-icon>
@@ -69,7 +77,16 @@
                 </el-card>
               </el-col>
               <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card">
+                <el-card class="stat-card" v-loading="loading">
+                  <el-statistic title="Звонков сегодня" :value="stats.totalCallsToday">
+                    <template #prefix>
+                      <el-icon style="color: #67c23a"><Phone /></el-icon>
+                    </template>
+                  </el-statistic>
+                </el-card>
+              </el-col>
+              <el-col :xs="24" :sm="12" :md="6">
+                <el-card class="stat-card" v-loading="loading">
                   <el-statistic title="Активных донглов" :value="stats.activeDongles">
                     <template #prefix>
                       <el-icon style="color: #67c23a"><Connection /></el-icon>
@@ -78,7 +95,7 @@
                 </el-card>
               </el-col>
               <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card">
+                <el-card class="stat-card" v-loading="loading">
                   <el-statistic title="Баланс" :value="user?.balance || 0" :precision="2" suffix="₽">
                     <template #prefix>
                       <el-icon style="color: #e6a23c"><Wallet /></el-icon>
@@ -86,8 +103,29 @@
                   </el-statistic>
                 </el-card>
               </el-col>
-              <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card">
+            </el-row>
+
+            <el-row :gutter="20" style="margin-top: 20px">
+              <el-col :xs="24" :sm="12" :md="8">
+                <el-card class="stat-card" v-loading="loading">
+                  <el-statistic title="Потрачено сегодня" :value="stats.totalSpentToday" :precision="2" suffix="₽">
+                    <template #prefix>
+                      <el-icon style="color: #f56c6c"><Wallet /></el-icon>
+                    </template>
+                  </el-statistic>
+                </el-card>
+              </el-col>
+              <el-col :xs="24" :sm="12" :md="8">
+                <el-card class="stat-card" v-loading="loading">
+                  <el-statistic title="Потрачено за месяц" :value="stats.totalSpentMonth" :precision="2" suffix="₽">
+                    <template #prefix>
+                      <el-icon style="color: #f56c6c"><Wallet /></el-icon>
+                    </template>
+                  </el-statistic>
+                </el-card>
+              </el-col>
+              <el-col :xs="24" :sm="12" :md="8">
+                <el-card class="stat-card" v-loading="loading">
                   <el-statistic title="Пользователей" :value="stats.totalUsers">
                     <template #prefix>
                       <el-icon style="color: #909399"><UserFilled /></el-icon>
@@ -97,7 +135,7 @@
               </el-col>
             </el-row>
 
-            <el-card class="info-card" style="margin-top: 20px">
+            <el-card class="info-card">
               <template #header>
                 <div class="card-header">
                   <span>Добро пожаловать в CloudPBX</span>
@@ -110,11 +148,11 @@
                 <el-divider />     
                 <h3>Быстрые действия:</h3>
                 <el-space wrap>
-                  <el-button type="primary" @click="$router.push('/calls')">
+                  <el-button v-if="permissionsStore.canRead('calls')" type="primary" @click="$router.push('/calls')">
                     <el-icon><Phone /></el-icon>
                     Просмотр звонков
                   </el-button>
-                  <el-button type="success" @click="$router.push('/dongles')">
+                  <el-button v-if="permissionsStore.canRead('dongles')" type="success" @click="$router.push('/dongles')">
                     <el-icon><Connection /></el-icon>
                     Управление донглами
                   </el-button>
@@ -136,6 +174,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
+import { statsAPI } from '@/api/stats'
 import { 
   User, 
   Setting, 
@@ -145,20 +184,30 @@ import {
   HomeFilled,
   Phone,
   Connection,
-  UserFilled
+  UserFilled,
+  Expand
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
 const user = computed(() => authStore.user)
 const activeMenu = computed(() => route.path)
+const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
+
 const stats = ref({
   totalCalls: 0,
+  totalCallsToday: 0,
   activeDongles: 0,
-  totalUsers: 1
+  totalUsers: 1,
+  totalBalance: 0,
+  totalSpentToday: 0,
+  totalSpentMonth: 0
 })
+
+const loading = ref(false)
 
 const menuItems = computed(() => {
   const items = [
@@ -202,10 +251,37 @@ const menuItems = computed(() => {
   return items.filter(item => item.show)
 })
 
+const toggleSidebar = () => {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  localStorage.setItem('sidebarCollapsed', sidebarCollapsed.value)
+}
+
+const loadStats = async () => {
+  try {
+    loading.value = true
+    const response = await statsAPI.getDashboardStats()
+    stats.value = {
+      totalCalls: response.data.total_calls,
+      totalCallsToday: response.data.total_calls_today,
+      activeDongles: response.data.active_dongles,
+      totalUsers: response.data.total_users,
+      totalBalance: response.data.total_balance,
+      totalSpentToday: response.data.total_spent_today,
+      totalSpentMonth: response.data.total_spent_month
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки статистики:', error)
+    ElMessage.error('Не удалось загрузить статистику')
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
   if (!permissionsStore.permissions.length) {
     permissionsStore.fetchPermissions()
   }
+  loadStats()
 })
 
 const handleCommand = (command) => {
@@ -239,10 +315,28 @@ const handleCommand = (command) => {
   border-bottom: 1px solid var(--el-border-color);
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .header-left h2 {
   margin: 0;
   color: var(--el-text-color-primary);
   font-size: 20px;
+}
+
+.sidebar-toggle {
+  background-color: var(--el-fill-color-light);
+  border-color: var(--el-border-color);
+  color: var(--el-text-color-regular);
+}
+
+.sidebar-toggle:hover {
+  background-color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+  color: #ffffff;
 }
 
 .header-right {
@@ -277,12 +371,15 @@ const handleCommand = (command) => {
   box-shadow: 2px 0 8px rgba(45, 90, 61, 0.2);
   border-right: 1px solid var(--el-border-color);
   min-height: calc(100vh - 60px);
+  transition: width 0.2s ease;
+  overflow: hidden;
 }
 
 .sidebar-menu {
   border: none;
   height: 100%;
   min-height: calc(100vh - 60px);
+  transition: none;
 }
 
 .main-content {
