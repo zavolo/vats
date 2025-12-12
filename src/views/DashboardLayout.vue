@@ -3,16 +3,11 @@
     <el-container>
       <el-header class="header">
         <div class="header-left">
-          <el-button 
-            :icon="Expand" 
-            circle 
-            @click="toggleSidebar"
-            class="sidebar-toggle"
-          />
+          <el-button :icon="Expand" circle @click="toggleSidebar" class="sidebar-toggle" />
           <h2>CloudPBX</h2>
         </div>
         <div class="header-right">
-          <el-space :size="20">
+          <el-space :size="15">
             <div class="balance" v-if="user">
               <el-icon><Wallet /></el-icon>
               <span>{{ user.balance?.toFixed(2) }} ₽</span>
@@ -45,20 +40,10 @@
       </el-header>
 
       <el-container>
-        <el-aside :width="sidebarCollapsed ? '64px' : '250px'" class="sidebar">
+        <el-aside :width="sidebarWidth" class="sidebar">
           <el-scrollbar>
-            <el-menu
-              :default-active="activeMenu"
-              router
-              class="sidebar-menu"
-              :collapse="sidebarCollapsed"
-              :collapse-transition="false"
-            >
-              <el-menu-item 
-                v-for="item in menuItems" 
-                :key="item.index"
-                :index="item.index"
-              >
+            <el-menu :default-active="activeMenu" router class="sidebar-menu" :collapse="sidebarCollapsed">
+              <el-menu-item v-for="item in menuItems" :key="item.index" :index="item.index">
                 <el-icon><component :is="item.icon" /></el-icon>
                 <span>{{ item.label }}</span>
               </el-menu-item>
@@ -68,34 +53,20 @@
 
         <el-main class="main-content">
           <router-view v-slot="{ Component }">
-            <transition name="fade" mode="out-in">
-              <component :is="Component" />
-            </transition>
+            <component :is="Component" :key="$route.fullPath" />
           </router-view>
         </el-main>
       </el-container>
     </el-container>
   </div>
 </template>
+
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
-import { 
-  User, 
-  Setting, 
-  SwitchButton, 
-  Wallet, 
-  ArrowDown,
-  HomeFilled,
-  Phone,
-  Connection,
-  UserFilled,
-  Expand,
-  OfficeBuilding,
-  Tickets
-} from '@element-plus/icons-vue'
+import { User, Setting, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -105,57 +76,18 @@ const permissionsStore = usePermissionsStore()
 const user = computed(() => authStore.user)
 const activeMenu = computed(() => route.path)
 const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
+const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '200px')
 
 const menuItems = computed(() => {
   const items = [
-    {
-      index: '/',
-      icon: HomeFilled,
-      label: 'Главная',
-      show: true
-    },
-    {
-      index: '/calls',
-      icon: Phone,
-      label: 'Звонки',
-      show: permissionsStore.canRead('calls')
-    },
-    {
-      index: '/dongles',
-      icon: Connection,
-      label: 'Донглы',
-      show: permissionsStore.canRead('dongles')
-    },
-    {
-      index: '/users',
-      icon: UserFilled,
-      label: 'Пользователи',
-      show: permissionsStore.canRead('users')
-    },
-    {
-      index: '/companies',
-      icon: OfficeBuilding,
-      label: 'Компании',
-      show: permissionsStore.canRead('companies')
-    },
-    {
-      index: '/tariffs',
-      icon: Tickets,
-      label: 'Тарифы',
-      show: true
-    },
-    {
-      index: '/payments',
-      icon: Wallet,
-      label: 'Платежи',
-      show: true
-    },
-    {
-      index: '/settings',
-      icon: Setting,
-      label: 'Настройки',
-      show: true
-    }
+    { index: '/', icon: HomeFilled, label: 'Главная', show: true },
+    { index: '/calls', icon: Phone, label: 'Звонки', show: permissionsStore.canRead('calls') },
+    { index: '/dongles', icon: Connection, label: 'Донглы', show: permissionsStore.canRead('dongles') },
+    { index: '/users', icon: UserFilled, label: 'Пользователи', show: permissionsStore.canRead('users') },
+    { index: '/companies', icon: OfficeBuilding, label: 'Компании', show: permissionsStore.canRead('companies') },
+    { index: '/tariffs', icon: Tickets, label: 'Тарифы', show: true },
+    { index: '/payments', icon: CreditCard, label: 'Платежи', show: true },
+    { index: '/settings', icon: Setting, label: 'Настройки', show: true }
   ]
   return items.filter(item => item.show)
 })
@@ -185,7 +117,14 @@ onMounted(async () => {
     await permissionsStore.fetchPermissions()
   }
 })
+
+watch(() => route.path, () => {
+  if (window.innerWidth < 768) {
+    sidebarCollapsed.value = true
+  }
+})
 </script>
+
 <style scoped>
 .dashboard-layout {
   min-height: 100vh;
@@ -200,6 +139,7 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 0 20px;
   border-bottom: 1px solid var(--el-border-color);
+  height: 56px;
 }
 
 .header-left {
@@ -211,7 +151,7 @@ onMounted(async () => {
 .header-left h2 {
   margin: 0;
   color: var(--el-text-color-primary);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .sidebar-toggle {
@@ -234,19 +174,21 @@ onMounted(async () => {
 .balance {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-weight: 500;
   color: var(--el-color-primary-light-7);
+  font-size: 14px;
 }
 
 .user-dropdown {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 4px;
   transition: background-color 0.3s;
+  font-size: 14px;
 }
 
 .user-dropdown:hover {
@@ -257,27 +199,32 @@ onMounted(async () => {
   background: var(--el-bg-color-overlay);
   box-shadow: 2px 0 8px rgba(45, 90, 61, 0.2);
   border-right: 1px solid var(--el-border-color);
-  transition: width 0.2s ease;
+  transition: width 0.3s;
   overflow: hidden;
 }
 
 .sidebar-menu {
   border: none;
-  transition: none;
+  height: 100%;
 }
 
 .main-content {
-  padding: 20px;
+  padding: 0;
   background-color: var(--el-bg-color-page);
+  overflow-x: hidden;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+@media (max-width: 768px) {
+  .header {
+    padding: 0 12px;
+  }
+  
+  .header-left h2 {
+    font-size: 16px;
+  }
+  
+  .balance span {
+    display: none;
+  }
 }
 </style>

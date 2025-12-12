@@ -1,3 +1,4 @@
+// UsersView.vue
 <template>
   <div class="users-view">
     <el-card>
@@ -5,83 +6,54 @@
         <div class="card-header">
           <span>Управление пользователями</span>
           <el-space>
-            <el-button type="primary" @click="loadUsers">
+            <el-button type="primary" @click="loadUsers" size="small">
               <el-icon><Refresh /></el-icon>
               Обновить
             </el-button>
-            <el-button 
-              type="success" 
-              @click="showCreateDialog = true"
-              v-if="permissionsStore.hasPermission('users', 'create')"
-            >
+            <el-button type="success" @click="showCreateDialog = true" size="small" v-if="permissionsStore.hasPermission('users', 'create')">
               <el-icon><Plus /></el-icon>
-              Добавить пользователя
+              Добавить
             </el-button>
           </el-space>
         </div>
       </template>
 
-      <el-table
-        :data="users"
-        v-loading="loading"
-        style="width: 100%"
-        stripe
-      >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="Имя пользователя" width="150" />
-        <el-table-column prop="email" label="Email" width="200" />
-        <el-table-column prop="phone" label="Телефон" width="150" />
-        <el-table-column label="Баланс" width="120">
+      <el-table :data="users" v-loading="loading" style="width: 100%" stripe size="small">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="username" label="Имя" width="130" />
+        <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="phone" label="Телефон" width="130" />
+        <el-table-column label="Баланс" width="100">
           <template #default="{ row }">
             {{ row.balance?.toFixed(2) || '0.00' }} ₽
           </template>
         </el-table-column>
-        <el-table-column label="Статус" width="100">
+        <el-table-column label="Статус" width="90">
           <template #default="{ row }">
             <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-              {{ row.is_active ? 'Активен' : 'Неактивен' }}
+              {{ row.is_active ? 'Активен' : 'Неакт.' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Действия" width="300" fixed="right">
+        <el-table-column label="Действия" width="180" fixed="right">
           <template #default="{ row }">
-            <el-space>
-              <el-button 
-                size="small" 
-                @click="openEditDialog(row)"
-                v-if="permissionsStore.hasPermission('users', 'update')"
-              >
-                Редактировать
+            <el-space :size="4">
+              <el-button size="small" @click="openEditDialog(row)" v-if="permissionsStore.hasPermission('users', 'update')">
+                Изменить
               </el-button>
-              <el-dropdown @command="(cmd) => handleCommand(cmd, row)">
+              <el-dropdown @command="(cmd) => handleCommand(cmd, row)" trigger="click">
                 <el-button size="small">
-                  Еще <el-icon><ArrowDown /></el-icon>
+                  <el-icon><MoreFilled /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item 
-                      command="balance"
-                      v-if="permissionsStore.hasPermission('users', 'update_balance')"
-                    >
-                      Изменить баланс
+                    <el-dropdown-item command="balance" v-if="permissionsStore.hasPermission('users', 'update_balance')">
+                      Баланс
                     </el-dropdown-item>
-                    <el-dropdown-item 
-                      command="roles"
-                      v-if="permissionsStore.hasPermission('users', 'assign_role')"
-                    >
-                      Управление ролями
+                    <el-dropdown-item command="login_as" v-if="permissionsStore.hasPermission('users', 'login_as')">
+                      Войти как
                     </el-dropdown-item>
-                    <el-dropdown-item 
-                      command="login_as"
-                      v-if="permissionsStore.hasPermission('users', 'login_as')"
-                    >
-                      Войти от имени
-                    </el-dropdown-item>
-                    <el-dropdown-item 
-                      command="delete"
-                      divided
-                      v-if="permissionsStore.hasPermission('users', 'delete')"
-                    >
+                    <el-dropdown-item command="delete" divided v-if="permissionsStore.hasPermission('users', 'delete')">
                       Удалить
                     </el-dropdown-item>
                   </el-dropdown-menu>
@@ -100,13 +72,14 @@
         layout="total, sizes, prev, pager, next"
         @size-change="loadUsers"
         @current-change="loadUsers"
-        style="margin-top: 20px; justify-content: center"
+        style="margin-top: 16px; justify-content: center"
+        small
       />
     </el-card>
 
-    <el-dialog v-model="showCreateDialog" title="Добавить пользователя" width="600px">
-      <el-form :model="createForm" label-width="140px">
-        <el-form-item label="Имя пользователя" required>
+    <el-dialog v-model="showCreateDialog" title="Добавить пользователя" width="500px">
+      <el-form :model="createForm" label-width="120px" size="default">
+        <el-form-item label="Имя" required>
           <el-input v-model="createForm.username" placeholder="username" />
         </el-form-item>
         <el-form-item label="Email" required>
@@ -125,8 +98,8 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showEditDialog" title="Редактировать пользователя" width="600px">
-      <el-form :model="editForm" label-width="140px">
+    <el-dialog v-model="showEditDialog" title="Редактировать" width="500px">
+      <el-form :model="editForm" label-width="120px" size="default">
         <el-form-item label="Email">
           <el-input v-model="editForm.email" />
         </el-form-item>
@@ -144,20 +117,11 @@
     </el-dialog>
 
     <el-dialog v-model="showBalanceDialog" title="Изменить баланс" width="400px">
-      <el-form :model="balanceForm" label-width="100px">
+      <el-form :model="balanceForm" label-width="100px" size="default">
         <el-form-item label="Сумма">
-          <el-input-number 
-            v-model="balanceForm.amount" 
-            :precision="2"
-            :step="10"
-            style="width: 100%"
-          />
+          <el-input-number v-model="balanceForm.amount" :precision="2" :step="10" style="width: 100%" />
         </el-form-item>
-        <el-alert 
-          :title="`Текущий баланс: ${currentUser?.balance?.toFixed(2) || '0.00'} ₽`"
-          type="info"
-          :closable="false"
-        />
+        <el-alert :title="`Текущий баланс: ${currentUser?.balance?.toFixed(2) || '0.00'} ₽`" type="info" :closable="false" />
       </el-form>
       <template #footer>
         <el-button @click="showBalanceDialog = false">Отмена</el-button>
@@ -169,7 +133,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Refresh, Plus, ArrowDown } from '@element-plus/icons-vue'
+import { Refresh, Plus, MoreFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import apiClient from '@/api/client'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -182,41 +146,20 @@ const users = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const currentUser = ref(null)
-
-const pagination = ref({
-  page: 1,
-  limit: 20,
-  total: 0
-})
+const pagination = ref({ page: 1, limit: 20, total: 0 })
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const showBalanceDialog = ref(false)
 
-const createForm = ref({
-  username: '',
-  email: '',
-  password: '',
-  phone: ''
-})
-
-const editForm = ref({
-  email: '',
-  phone: '',
-  is_active: true
-})
-
-const balanceForm = ref({
-  amount: 0
-})
+const createForm = ref({ username: '', email: '', password: '', phone: '' })
+const editForm = ref({ email: '', phone: '', is_active: true })
+const balanceForm = ref({ amount: 0 })
 
 const loadUsers = async () => {
   try {
     loading.value = true
-    const params = {
-      skip: (pagination.value.page - 1) * pagination.value.limit,
-      limit: pagination.value.limit
-    }
+    const params = { skip: (pagination.value.page - 1) * pagination.value.limit, limit: pagination.value.limit }
     const response = await apiClient.get('/users', { params })
     users.value = response.data
     pagination.value.total = response.data.length
@@ -239,12 +182,7 @@ const createUser = async () => {
     ElMessage.success('Пользователь создан')
     showCreateDialog.value = false
     loadUsers()
-    createForm.value = {
-      username: '',
-      email: '',
-      password: '',
-      phone: ''
-    }
+    createForm.value = { username: '', email: '', password: '', phone: '' }
   } catch (error) {
     console.error('Ошибка создания пользователя:', error)
     ElMessage.error(error.response?.data?.detail || 'Не удалось создать пользователя')
@@ -255,11 +193,7 @@ const createUser = async () => {
 
 const openEditDialog = (user) => {
   currentUser.value = user
-  editForm.value = {
-    email: user.email || '',
-    phone: user.phone || '',
-    is_active: user.is_active
-  }
+  editForm.value = { email: user.email || '', phone: user.phone || '', is_active: user.is_active }
   showEditDialog.value = true
 }
 
@@ -280,14 +214,10 @@ const updateUser = async () => {
 
 const handleCommand = async (command, user) => {
   currentUser.value = user
-  
   switch (command) {
     case 'balance':
       balanceForm.value = { amount: 0 }
       showBalanceDialog.value = true
-      break
-    case 'roles':
-      ElMessage.info('Функционал в разработке')
       break
     case 'login_as':
       await loginAsUser(user)
@@ -315,15 +245,11 @@ const updateBalance = async () => {
 
 const loginAsUser = async (user) => {
   try {
-    await ElMessageBox.confirm(
-      `Вы уверены, что хотите войти от имени пользователя "${user.username}"?`,
-      'Подтверждение',
-      {
-        confirmButtonText: 'Войти',
-        cancelButtonText: 'Отмена',
-        type: 'warning'
-      }
-    )
+    await ElMessageBox.confirm(`Вы уверены, что хотите войти от имени пользователя "${user.username}"?`, 'Подтверждение', {
+      confirmButtonText: 'Войти',
+      cancelButtonText: 'Отмена',
+      type: 'warning'
+    })
     const response = await apiClient.post(`/users/${user.id}/login-as`)
     localStorage.setItem('token', response.data.access_token)
     authStore.token = response.data.access_token
@@ -340,15 +266,11 @@ const loginAsUser = async (user) => {
 
 const deleteUser = async (user) => {
   try {
-    await ElMessageBox.confirm(
-      `Вы уверены, что хотите удалить пользователя "${user.username}"?`,
-      'Подтверждение',
-      {
-        confirmButtonText: 'Удалить',
-        cancelButtonText: 'Отмена',
-        type: 'warning'
-      }
-    )
+    await ElMessageBox.confirm(`Вы уверены, что хотите удалить пользователя "${user.username}"?`, 'Подтверждение', {
+      confirmButtonText: 'Удалить',
+      cancelButtonText: 'Отмена',
+      type: 'warning'
+    })
     await apiClient.delete(`/users/${user.id}`)
     ElMessage.success('Пользователь удален')
     loadUsers()
@@ -367,6 +289,7 @@ onMounted(() => {
 
 <style scoped>
 .users-view {
+  padding: 16px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -375,5 +298,13 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .users-view {
+    padding: 12px;
+  }
 }
 </style>
