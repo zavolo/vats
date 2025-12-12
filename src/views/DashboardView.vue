@@ -170,7 +170,7 @@
   </div>
 </template>
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -277,11 +277,19 @@ const loadStats = async () => {
   }
 }
 
+watch(user, (newUser) => {
+  if (newUser) {
+    loadStats()
+  }
+}, { immediate: false })
+
 onMounted(() => {
   if (!permissionsStore.permissions.length) {
     permissionsStore.fetchPermissions()
   }
-  loadStats()
+  if (user.value) {
+    loadStats()
+  }
 })
 
 const handleCommand = (command) => {
