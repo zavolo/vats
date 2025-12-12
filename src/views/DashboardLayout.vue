@@ -40,13 +40,14 @@
       </el-header>
 
       <el-container>
-        <el-aside :width="sidebarWidth" class="sidebar">
+        <el-aside :width="sidebarCollapsed ? '64px' : '200px'" class="sidebar" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
           <el-scrollbar>
             <el-menu 
               :default-active="activeMenu" 
               router 
               class="sidebar-menu" 
               :collapse="sidebarCollapsed"
+              :collapse-transition="false"
             >
               <el-menu-item index="/">
                 <el-icon><HomeFilled /></el-icon>
@@ -107,7 +108,6 @@ const permissionsStore = usePermissionsStore()
 const user = computed(() => authStore.user)
 const activeMenu = computed(() => route.path)
 const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
-const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '200px')
 
 const canReadCalls = computed(() => permissionsStore.canRead('calls'))
 const canReadDongles = computed(() => permissionsStore.canRead('dongles'))
@@ -116,7 +116,7 @@ const canReadCompanies = computed(() => permissionsStore.canRead('companies'))
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
-  localStorage.setItem('sidebarCollapsed', sidebarCollapsed.value)
+  localStorage.setItem('sidebarCollapsed', sidebarCollapsed.value.toString())
 }
 
 const handleCommand = (command) => {
@@ -222,13 +222,18 @@ watch(() => route.path, () => {
   background: var(--el-bg-color-overlay);
   box-shadow: 2px 0 8px rgba(45, 90, 61, 0.2);
   border-right: 1px solid var(--el-border-color);
-  transition: width 0.3s ease;
+  transition: width 0.28s ease-in-out;
   overflow: hidden;
+  will-change: width;
 }
 
 .sidebar-menu {
   border: none;
   height: 100%;
+}
+
+.sidebar-menu:not(.el-menu--collapse) {
+  width: 200px;
 }
 
 .el-menu-item {
