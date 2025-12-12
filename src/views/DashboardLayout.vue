@@ -47,13 +47,34 @@
               router 
               class="sidebar-menu" 
               :collapse="sidebarCollapsed"
-              :unique-opened="false"
             >
-              <el-menu-item v-for="item in menuItems" :key="item.index" :index="item.index">
-                <el-icon><component :is="item.icon" /></el-icon>
-                <template #title>
-                  <span>{{ item.label }}</span>
-                </template>
+              <el-menu-item index="/">
+                <el-icon><HomeFilled /></el-icon>
+                <template #title><span>Главная</span></template>
+              </el-menu-item>
+              <el-menu-item index="/calls" v-if="canReadCalls">
+                <el-icon><Phone /></el-icon>
+                <template #title><span>Звонки</span></template>
+              </el-menu-item>
+              <el-menu-item index="/dongles" v-if="canReadDongles">
+                <el-icon><Connection /></el-icon>
+                <template #title><span>Донглы</span></template>
+              </el-menu-item>
+              <el-menu-item index="/users" v-if="canReadUsers">
+                <el-icon><UserFilled /></el-icon>
+                <template #title><span>Пользователи</span></template>
+              </el-menu-item>
+              <el-menu-item index="/companies" v-if="canReadCompanies">
+                <el-icon><OfficeBuilding /></el-icon>
+                <template #title><span>Компании</span></template>
+              </el-menu-item>
+              <el-menu-item index="/tariffs">
+                <el-icon><Tickets /></el-icon>
+                <template #title><span>Тарифы</span></template>
+              </el-menu-item>
+              <el-menu-item index="/payments">
+                <el-icon><CreditCard /></el-icon>
+                <template #title><span>Платежи</span></template>
               </el-menu-item>
             </el-menu>
           </el-scrollbar>
@@ -88,23 +109,10 @@ const activeMenu = computed(() => route.path)
 const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
 const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '200px')
 
-const allMenuItems = [
-  { index: '/', icon: HomeFilled, label: 'Главная', show: true },
-  { index: '/calls', icon: Phone, label: 'Звонки', permission: 'calls' },
-  { index: '/dongles', icon: Connection, label: 'Донглы', permission: 'dongles' },
-  { index: '/users', icon: UserFilled, label: 'Пользователи', permission: 'users' },
-  { index: '/companies', icon: OfficeBuilding, label: 'Компании', permission: 'companies' },
-  { index: '/tariffs', icon: Tickets, label: 'Тарифы', show: true },
-  { index: '/payments', icon: CreditCard, label: 'Платежи', show: true }
-]
-
-const menuItems = computed(() => {
-  return allMenuItems.filter(item => {
-    if (item.show) return true
-    if (item.permission) return permissionsStore.canRead(item.permission)
-    return false
-  })
-})
+const canReadCalls = computed(() => permissionsStore.canRead('calls'))
+const canReadDongles = computed(() => permissionsStore.canRead('dongles'))
+const canReadUsers = computed(() => permissionsStore.canRead('users'))
+const canReadCompanies = computed(() => permissionsStore.canRead('companies'))
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
@@ -221,7 +229,10 @@ watch(() => route.path, () => {
 .sidebar-menu {
   border: none;
   height: 100%;
-  transition: none;
+}
+
+.el-menu-item {
+  transition: none !important;
 }
 
 .main-content {
