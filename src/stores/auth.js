@@ -66,11 +66,15 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async fetchUser() {
+    async fetchUser(force = false) {
+      if (this.user && !force) {
+        return
+      }
       try {
         const response = await authAPI.getCurrentUser()
         this.user = response.data
         const permissionsStore = usePermissionsStore()
+        permissionsStore.clear()
         await permissionsStore.fetchPermissions()
       } catch (error) {
         console.error('Ошибка получения пользователя:', error)
@@ -82,6 +86,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = null
       this.user = null
       this.error = null
+      this.loading = false
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       const permissionsStore = usePermissionsStore()

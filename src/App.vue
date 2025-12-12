@@ -2,14 +2,23 @@
   <router-view />
 </template>
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useRouter } from 'vue-router'
+
 const authStore = useAuthStore()
+const router = useRouter()
 
 onMounted(() => {
   authStore.init()
-  if (authStore.isAuthenticated && !authStore.user) {
-    authStore.fetchUser()
+  if (authStore.isAuthenticated) {
+    authStore.fetchUser(true)
+  }
+})
+
+watch(() => router.currentRoute.value, async () => {
+  if (authStore.isAuthenticated && authStore.user) {
+    await authStore.fetchUser(true)
   }
 })
 </script>
