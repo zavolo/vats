@@ -15,7 +15,6 @@
         </div>
       </el-col>
     </el-row>
-
     <el-row :gutter="16" style="margin-top: 16px">
       <el-col :xs="24" :lg="16">
         <el-card class="recent-calls-card">
@@ -53,7 +52,6 @@
           </div>
         </el-card>
       </el-col>
-
       <el-col :xs="24" :lg="8">
         <el-card class="info-card">
           <template #header>
@@ -86,7 +84,6 @@
             </div>
           </div>
         </el-card>
-
         <el-card class="system-status-card" style="margin-top: 16px" v-if="isRoot">
           <template #header>
             <div class="card-header">
@@ -108,7 +105,6 @@
     </el-row>
   </div>
 </template>
-
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
@@ -120,7 +116,6 @@ import { ElMessage } from 'element-plus'
 
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
-
 const user = computed(() => authStore.user)
 const loading = ref(false)
 const loadingCalls = ref(false)
@@ -204,10 +199,19 @@ const loadStats = async () => {
 
 const loadRecentCalls = async () => {
   if (!permissionsStore.canRead('calls')) return
-  
   try {
     loadingCalls.value = true
-    const response = await apiClient.get('/calls', { params: { skip: 0, limit: 5 } })
+    const response = await apiClient.get('/calls', { 
+      params: { 
+        skip: 0, 
+        limit: 5,
+        _t: Date.now()
+      },
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     recentCalls.value = response.data
   } catch (error) {
     console.error('Ошибка загрузки звонков:', error)
