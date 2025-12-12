@@ -1,4 +1,3 @@
-// UsersView.vue
 <template>
   <div class="users-view">
     <el-card>
@@ -19,7 +18,7 @@
       </template>
 
       <el-table :data="users" v-loading="loading" style="width: 100%" stripe size="small">
-        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column type="index" label="#" width="60" :index="getIndex" />
         <el-table-column prop="username" label="Имя" width="130" />
         <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
         <el-table-column prop="phone" label="Телефон" width="130" />
@@ -155,6 +154,10 @@ const showBalanceDialog = ref(false)
 const createForm = ref({ username: '', email: '', password: '', phone: '' })
 const editForm = ref({ email: '', phone: '', is_active: true })
 const balanceForm = ref({ amount: 0 })
+
+const getIndex = (index) => {
+  return (pagination.value.page - 1) * pagination.value.limit + index + 1
+}
 
 const loadUsers = async () => {
   try {
