@@ -5,7 +5,7 @@ import router from '@/router'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem('token') || null,
+    token: null,
     user: null,
     loading: false,
     error: null
@@ -17,16 +17,18 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    init() {
+      const token = localStorage.getItem('token')
+      if (token) {
+        this.token = token
+      }
+    },
+
     async login(username, password) {
       this.loading = true
       this.error = null
       
-      this.token = null
-      this.user = null
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      const permissionsStore = usePermissionsStore()
-      permissionsStore.clear()
+      this.clearAuth()
       
       try {
         const response = await authAPI.login(username, password)
@@ -47,12 +49,7 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       
-      this.token = null
-      this.user = null
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      const permissionsStore = usePermissionsStore()
-      permissionsStore.clear()
+      this.clearAuth()
       
       try {
         const response = await authAPI.register(data)
@@ -81,7 +78,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    logout() {
+    clearAuth() {
       this.token = null
       this.user = null
       this.error = null
@@ -89,6 +86,10 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('user')
       const permissionsStore = usePermissionsStore()
       permissionsStore.clear()
+    },
+
+    logout() {
+      this.clearAuth()
       if (router.currentRoute.value.path !== '/login') {
         router.push('/login')
       }

@@ -7,11 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 
 onMounted(() => {
-  const token = localStorage.getItem('token')
-  if (token && authStore.isAuthenticated && !authStore.user) {
+  authStore.init()
+  if (authStore.isAuthenticated && !authStore.user) {
     authStore.fetchUser()
-  } else if (!token) {
-    authStore.logout()
   }
 })
 </script>
