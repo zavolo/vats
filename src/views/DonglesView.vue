@@ -199,10 +199,20 @@ const currentDongle = ref(null)
 const loadDongles = async () => {
   try {
     loading.value = true
-    const params = { skip: (pagination.value.page - 1) * pagination.value.limit, limit: pagination.value.limit }
+    const params = { 
+      skip: (pagination.value.page - 1) * pagination.value.limit, 
+      limit: pagination.value.limit,
+      _t: Date.now()
+    }
     if (filters.value.isActive !== null) params.is_active = filters.value.isActive
     if (filters.value.isOnline !== null) params.is_online = filters.value.isOnline
-    const response = await apiClient.get('/dongles', { params })
+    const response = await apiClient.get('/dongles', { 
+      params,
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     dongles.value = response.data
     pagination.value.total = response.data.length
   } catch (error) {
@@ -223,8 +233,8 @@ const createDongle = async () => {
     await apiClient.post('/dongles', createForm.value)
     ElMessage.success('Донгл создан')
     showCreateDialog.value = false
-    loadDongles()
     createForm.value = { name: '', provider: '', imei: '', imsi: '', phone_number: '' }
+    await loadDongles()
   } catch (error) {
     console.error('Ошибка создания донгла:', error)
     ElMessage.error(error.response?.data?.detail || 'Не удалось создать донгл')
@@ -245,7 +255,7 @@ const updateDongle = async () => {
     await apiClient.put(`/dongles/${currentDongle.value.id}`, editForm.value)
     ElMessage.success('Донгл обновлен')
     showEditDialog.value = false
-    loadDongles()
+    await loadDongles()
   } catch (error) {
     console.error('Ошибка обновления донгла:', error)
     ElMessage.error('Не удалось обновить донгл')
@@ -329,7 +339,7 @@ const deleteDongle = async (dongle) => {
     })
     await apiClient.delete(`/dongles/${dongle.id}`)
     ElMessage.success('Донгл удален')
-    loadDongles()
+    await loadDongles()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления донгла:', error)
