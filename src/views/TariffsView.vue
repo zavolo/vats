@@ -5,7 +5,7 @@
         <div class="card-header">
           <span>Тарифные планы</span>
           <el-space>
-            <el-button type="primary" @click="loadTariffs" size="small">
+            <el-button type="primary" @click="loadTariffs" size="small" :loading="loading">
               <el-icon><Refresh /></el-icon>
               Обновить
             </el-button>
@@ -173,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { Refresh, Plus, CircleCheck, MoreFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import apiClient from '@/api/client'
@@ -210,7 +210,13 @@ const editForm = ref({
 const loadTariffs = async () => {
   try {
     loading.value = true
-    const response = await apiClient.get('/tariffs')
+    const response = await apiClient.get('/tariffs', {
+      params: { _t: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     tariffs.value = response.data
   } catch (error) {
     console.error('Ошибка загрузки тарифов:', error)
@@ -322,6 +328,10 @@ const selectTariff = (tariff) => {
 }
 
 onMounted(() => {
+  loadTariffs()
+})
+
+onActivated(() => {
   loadTariffs()
 })
 </script>

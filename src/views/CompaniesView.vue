@@ -5,7 +5,7 @@
         <div class="card-header">
           <span>Управление компаниями</span>
           <el-space>
-            <el-button type="primary" @click="loadCompanies" size="small">
+            <el-button type="primary" @click="loadCompanies" size="small" :loading="loading">
               <el-icon><Refresh /></el-icon>
               Обновить
             </el-button>
@@ -137,7 +137,7 @@
   </div>
 </template>
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { Refresh, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import apiClient from '@/api/client'
@@ -183,9 +183,16 @@ const loadCompanies = async () => {
     loading.value = true
     const params = {
       skip: (pagination.value.page - 1) * pagination.value.limit,
-      limit: pagination.value.limit
+      limit: pagination.value.limit,
+      _t: Date.now()
     }
-    const response = await apiClient.get('/companies', { params })
+    const response = await apiClient.get('/companies', { 
+      params,
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     companies.value = response.data
     pagination.value.total = response.data.length
   } catch (error) {
@@ -275,6 +282,10 @@ const deleteCompany = async (company) => {
 }
 
 onMounted(() => {
+  loadCompanies()
+})
+
+onActivated(() => {
   loadCompanies()
 })
 </script>

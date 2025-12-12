@@ -5,40 +5,55 @@
         <el-card class="profile-card">
           <template #header>
             <div class="card-header">
-              <span>Профиль</span>
+              <span>Профиль пользователя</span>
             </div>
           </template>
-          <div class="profile-avatar">
-            <el-avatar :size="80" :icon="UserFilled" />
-            <h3>{{ user?.username }}</h3>
-            <el-tag :type="user?.is_active ? 'success' : 'danger'" size="small">
-              {{ user?.is_active ? 'Активен' : 'Неактивен' }}
-            </el-tag>
-          </div>
-          <el-divider style="margin: 16px 0" />
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="ID">{{ user?.id }}</el-descriptions-item>
-            <el-descriptions-item label="Email">{{ user?.email }}</el-descriptions-item>
-            <el-descriptions-item label="Телефон">{{ user?.phone || 'Не указан' }}</el-descriptions-item>
-            <el-descriptions-item label="Баланс">
-              <span style="color: var(--el-color-primary); font-weight: 600;">
-                {{ user?.balance?.toFixed(2) || '0.00' }} ₽
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="Статус">
-              <el-tag :type="user?.is_active ? 'success' : 'danger'" size="small">
-                {{ user?.is_active ? 'Активен' : 'Неактивен' }}
-              </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
-          <el-divider style="margin: 16px 0" v-if="userRoles.length > 0" />
-          <div v-if="userRoles.length > 0">
-            <h4 style="margin: 0 0 8px 0; font-size: 13px;">Роли:</h4>
-            <el-space wrap>
-              <el-tag v-for="role in userRoles" :key="role.id" :type="getRoleType(role.name)" size="small">
-                {{ role.name }}
-              </el-tag>
-            </el-space>
+          <div class="profile-info">
+            <div class="info-group">
+              <div class="info-item">
+                <span class="info-label">Имя пользователя</span>
+                <span class="info-value">{{ user?.username }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">ID</span>
+                <span class="info-value">#{{ user?.id }}</span>
+              </div>
+            </div>
+
+            <div class="info-group">
+              <div class="info-item">
+                <span class="info-label">Email</span>
+                <span class="info-value">{{ user?.email }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Телефон</span>
+                <span class="info-value">{{ user?.phone || 'Не указан' }}</span>
+              </div>
+            </div>
+
+            <div class="info-group">
+              <div class="info-item">
+                <span class="info-label">Баланс</span>
+                <span class="info-value balance-value">{{ user?.balance?.toFixed(2) || '0.00' }} ₽</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Статус</span>
+                <el-tag :type="user?.is_active ? 'success' : 'danger'" size="small">
+                  {{ user?.is_active ? 'Активен' : 'Неактивен' }}
+                </el-tag>
+              </div>
+            </div>
+
+            <div class="info-group" v-if="userRoles.length > 0">
+              <div class="info-item roles-item">
+                <span class="info-label">Роли</span>
+                <el-space wrap>
+                  <el-tag v-for="role in userRoles" :key="role.id" :type="getRoleType(role.name)" size="small">
+                    {{ role.name }}
+                  </el-tag>
+                </el-space>
+              </div>
+            </div>
           </div>
         </el-card>
 
@@ -81,7 +96,7 @@
         <el-card class="edit-card">
           <template #header>
             <div class="card-header">
-              <span>Редактирование</span>
+              <span>Редактирование профиля</span>
             </div>
           </template>
           <el-form :model="editForm" label-width="120px" size="default">
@@ -130,12 +145,13 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePermissionsStore } from '@/stores/permissions'
 import { statsAPI } from '@/api/stats'
 import apiClient from '@/api/client'
-import { UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const authStore = useAuthStore()
+const permissionsStore = usePermissionsStore()
 const user = computed(() => authStore.user)
 const saving = ref(false)
 const changingPassword = ref(false)
@@ -183,7 +199,9 @@ const updateProfile = async () => {
     saving.value = true
     await apiClient.put(`/users/${user.value.id}`, editForm.value)
     await authStore.fetchUser(true)
+    await permissionsStore.fetchPermissions()
     ElMessage.success('Профиль обновлен')
+    loadProfile()
   } catch (error) {
     console.error('Ошибка обновления профиля:', error)
     ElMessage.error('Не удалось обновить профиль')
@@ -235,17 +253,53 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.profile-avatar {
+.profile-info {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
+  gap: 20px;
 }
 
-.profile-avatar h3 {
-  margin: 12px 0 8px 0;
+.info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.roles-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.info-value {
+  font-size: 14px;
   color: var(--el-text-color-primary);
-  font-size: 18px;
+  font-weight: 600;
+  text-align: right;
+  flex: 1;
+}
+
+.balance-value {
+  color: var(--el-color-primary);
+  font-size: 16px;
 }
 
 .stat-box {
@@ -271,6 +325,20 @@ onMounted(() => {
 @media (max-width: 768px) {
   .profile-view {
     padding: 12px;
+  }
+  
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .info-value {
+    text-align: left;
+  }
+  
+  .info-label {
+    min-width: auto;
   }
 }
 </style>
