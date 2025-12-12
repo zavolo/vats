@@ -4,14 +4,21 @@
       <template #header>
         <div class="card-header">
           <span>Тарифные планы</span>
-          <el-button 
-            type="success" 
-            @click="showCreateDialog = true"
-            v-if="permissionsStore.hasPermission('tariffs', 'create')"
-          >
-            <el-icon><Plus /></el-icon>
-            Добавить тариф
-          </el-button>
+          <el-space>
+            <el-button type="primary" @click="loadTariffs" size="small">
+              <el-icon><Refresh /></el-icon>
+              Обновить
+            </el-button>
+            <el-button 
+              type="success" 
+              @click="showCreateDialog = true"
+              size="small"
+              v-if="permissionsStore.hasPermission('tariffs', 'create')"
+            >
+              <el-icon><Plus /></el-icon>
+              Добавить
+            </el-button>
+          </el-space>
         </div>
       </template>
 
@@ -105,7 +112,7 @@
     </el-card>
 
     <el-dialog v-model="showCreateDialog" title="Добавить тариф" width="700px">
-      <el-form :model="createForm" label-width="180px">
+      <el-form :model="createForm" label-width="180px" size="default">
         <el-form-item label="Название" required>
           <el-input v-model="createForm.name" />
         </el-form-item>
@@ -137,7 +144,7 @@
     </el-dialog>
 
     <el-dialog v-model="showEditDialog" title="Редактировать тариф" width="700px">
-      <el-form :model="editForm" label-width="180px">
+      <el-form :model="editForm" label-width="180px" size="default">
         <el-form-item label="Название">
           <el-input v-model="editForm.name" />
         </el-form-item>
@@ -167,7 +174,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Plus, CircleCheck, MoreFilled } from '@element-plus/icons-vue'
+import { Refresh, Plus, CircleCheck, MoreFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import apiClient from '@/api/client'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -231,7 +238,6 @@ const createTariff = async () => {
     await apiClient.post('/tariffs', data)
     ElMessage.success('Тариф создан')
     showCreateDialog.value = false
-    loadTariffs()
     createForm.value = {
       name: '',
       description: '',
@@ -240,6 +246,7 @@ const createTariff = async () => {
       included_numbers: 1
     }
     featuresList.value = []
+    await loadTariffs()
   } catch (error) {
     console.error('Ошибка создания тарифа:', error)
     ElMessage.error('Не удалось создать тариф')
@@ -279,7 +286,7 @@ const updateTariff = async () => {
     await apiClient.put(`/tariffs/${currentTariff.value.id}`, editForm.value)
     ElMessage.success('Тариф обновлен')
     showEditDialog.value = false
-    loadTariffs()
+    await loadTariffs()
   } catch (error) {
     console.error('Ошибка обновления тарифа:', error)
     ElMessage.error('Не удалось обновить тариф')
@@ -301,7 +308,7 @@ const deleteTariff = async (tariff) => {
     )
     await apiClient.delete(`/tariffs/${tariff.id}`)
     ElMessage.success('Тариф удален')
-    loadTariffs()
+    await loadTariffs()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления тарифа:', error)
@@ -321,6 +328,7 @@ onMounted(() => {
 
 <style scoped>
 .tariffs-view {
+  padding: 16px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -329,6 +337,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .tariff-card {
@@ -405,5 +415,11 @@ onMounted(() => {
 
 .tariff-actions .el-dropdown .el-button {
   flex: initial;
+}
+
+@media (max-width: 768px) {
+  .tariffs-view {
+    padding: 12px;
+  }
 }
 </style>

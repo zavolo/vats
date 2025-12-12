@@ -25,6 +25,11 @@
                 {{ user?.balance?.toFixed(2) || '0.00' }} ₽
               </span>
             </el-descriptions-item>
+            <el-descriptions-item label="Статус">
+              <el-tag :type="user?.is_active ? 'success' : 'danger'" size="small">
+                {{ user?.is_active ? 'Активен' : 'Неактивен' }}
+              </el-tag>
+            </el-descriptions-item>
           </el-descriptions>
           <el-divider style="margin: 16px 0" v-if="userRoles.length > 0" />
           <div v-if="userRoles.length > 0">
@@ -123,16 +128,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { usePermissionsStore } from '@/stores/permissions'
 import { statsAPI } from '@/api/stats'
 import apiClient from '@/api/client'
 import { UserFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const authStore = useAuthStore()
-const permissionsStore = usePermissionsStore()
 const user = computed(() => authStore.user)
 const saving = ref(false)
 const changingPassword = ref(false)
@@ -180,7 +183,6 @@ const updateProfile = async () => {
     saving.value = true
     await apiClient.put(`/users/${user.value.id}`, editForm.value)
     await authStore.fetchUser(true)
-    loadProfile()
     ElMessage.success('Профиль обновлен')
   } catch (error) {
     console.error('Ошибка обновления профиля:', error)
@@ -214,10 +216,6 @@ const changePassword = async () => {
     changingPassword.value = false
   }
 }
-
-watch(user, () => {
-  loadProfile()
-}, { deep: true })
 
 onMounted(() => {
   loadProfile()

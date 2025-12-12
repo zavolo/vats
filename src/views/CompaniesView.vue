@@ -5,17 +5,18 @@
         <div class="card-header">
           <span>Управление компаниями</span>
           <el-space>
-            <el-button type="primary" @click="loadCompanies">
+            <el-button type="primary" @click="loadCompanies" size="small">
               <el-icon><Refresh /></el-icon>
               Обновить
             </el-button>
             <el-button 
               type="success" 
               @click="showCreateDialog = true"
+              size="small"
               v-if="permissionsStore.hasPermission('companies', 'create')"
             >
               <el-icon><Plus /></el-icon>
-              Добавить компанию
+              Добавить
             </el-button>
           </el-space>
         </div>
@@ -26,29 +27,30 @@
         v-loading="loading"
         style="width: 100%"
         stripe
+        size="small"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="Название" width="200" />
-        <el-table-column prop="legal_name" label="Юридическое название" />
-        <el-table-column prop="inn" label="ИНН" width="150" />
-        <el-table-column prop="phone" label="Телефон" width="150" />
-        <el-table-column prop="email" label="Email" width="200" />
-        <el-table-column label="Статус" width="120">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="name" label="Название" width="150" show-overflow-tooltip />
+        <el-table-column prop="legal_name" label="Юр. название" width="180" show-overflow-tooltip />
+        <el-table-column prop="inn" label="ИНН" width="120" />
+        <el-table-column prop="phone" label="Телефон" width="130" />
+        <el-table-column prop="email" label="Email" width="160" show-overflow-tooltip />
+        <el-table-column label="Статус" width="90">
           <template #default="{ row }">
             <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-              {{ row.is_active ? 'Активна' : 'Неактивна' }}
+              {{ row.is_active ? 'Акт.' : 'Неакт.' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Действия" width="250" fixed="right">
+        <el-table-column label="Действия" width="200" fixed="right">
           <template #default="{ row }">
-            <el-space>
+            <el-space :size="4">
               <el-button 
                 size="small" 
                 @click="openEditDialog(row)"
                 v-if="permissionsStore.hasPermission('companies', 'update')"
               >
-                Редактировать
+                Изменить
               </el-button>
               <el-button 
                 size="small" 
@@ -71,12 +73,13 @@
         layout="total, sizes, prev, pager, next"
         @size-change="loadCompanies"
         @current-change="loadCompanies"
-        style="margin-top: 20px; justify-content: center"
+        style="margin-top: 16px; justify-content: center"
+        small
       />
     </el-card>
 
     <el-dialog v-model="showCreateDialog" title="Добавить компанию" width="700px">
-      <el-form :model="createForm" label-width="180px">
+      <el-form :model="createForm" label-width="180px" size="default">
         <el-form-item label="Название" required>
           <el-input v-model="createForm.name" />
         </el-form-item>
@@ -103,7 +106,7 @@
     </el-dialog>
 
     <el-dialog v-model="showEditDialog" title="Редактировать компанию" width="700px">
-      <el-form :model="editForm" label-width="180px">
+      <el-form :model="editForm" label-width="180px" size="default">
         <el-form-item label="Название">
           <el-input v-model="editForm.name" />
         </el-form-item>
@@ -203,7 +206,6 @@ const createCompany = async () => {
     await apiClient.post('/companies', createForm.value)
     ElMessage.success('Компания создана')
     showCreateDialog.value = false
-    loadCompanies()
     createForm.value = {
       name: '',
       legal_name: '',
@@ -212,6 +214,7 @@ const createCompany = async () => {
       email: '',
       address: ''
     }
+    await loadCompanies()
   } catch (error) {
     console.error('Ошибка создания компании:', error)
     ElMessage.error('Не удалось создать компанию')
@@ -240,7 +243,7 @@ const updateCompany = async () => {
     await apiClient.put(`/companies/${currentCompany.value.id}`, editForm.value)
     ElMessage.success('Компания обновлена')
     showEditDialog.value = false
-    loadCompanies()
+    await loadCompanies()
   } catch (error) {
     console.error('Ошибка обновления компании:', error)
     ElMessage.error('Не удалось обновить компанию')
@@ -262,7 +265,7 @@ const deleteCompany = async (company) => {
     )
     await apiClient.delete(`/companies/${company.id}`)
     ElMessage.success('Компания удалена')
-    loadCompanies()
+    await loadCompanies()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления компании:', error)
@@ -278,6 +281,7 @@ onMounted(() => {
 
 <style scoped>
 .companies-view {
+  padding: 16px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -286,5 +290,13 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .companies-view {
+    padding: 12px;
+  }
 }
 </style>

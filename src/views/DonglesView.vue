@@ -49,7 +49,7 @@
         </template>
       </el-alert>
 
-      <el-table :data="dongles" v-loading="loading" style="width: 100%" stripe size="small">
+      <el-table :data="dongles" v-loading="loading" style="width: 100%" stripe size="small" :key="tableKey">
         <el-table-column prop="name" label="Имя" width="130" />
         <el-table-column prop="provider" label="Провайдер" width="110" />
         <el-table-column prop="phone_number" label="Номер" width="130" />
@@ -210,7 +210,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onActivated } from 'vue'
 import { Refresh, Plus, MoreFilled, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import apiClient from '@/api/client'
@@ -225,6 +225,7 @@ const sending = ref(false)
 const syncing = ref(false)
 const filters = ref({ isActive: null, isOnline: null })
 const pagination = ref({ page: 1, limit: 20, total: 0 })
+const tableKey = ref(0)
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
@@ -273,6 +274,7 @@ const loadDongles = async () => {
     })
     dongles.value = response.data
     pagination.value.total = response.data.length
+    tableKey.value++
   } catch (error) {
     console.error('Ошибка загрузки донглов:', error)
     ElMessage.error('Не удалось загрузить донглы')
@@ -448,6 +450,10 @@ const deleteDongle = async (dongle) => {
 }
 
 onMounted(() => {
+  loadDongles()
+})
+
+onActivated(() => {
   loadDongles()
 })
 </script>

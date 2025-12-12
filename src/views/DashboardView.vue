@@ -28,32 +28,29 @@
               </el-button>
             </div>
           </template>
-          <el-table :data="recentCalls" v-loading="loadingCalls" style="width: 100%">
-            <el-table-column prop="call_type" label="Тип" width="80">
-              <template #default="{ row }">
-                <el-tag :type="row.call_type === 'incoming' ? 'success' : 'primary'" size="small">
-                  {{ row.call_type === 'incoming' ? 'Вх.' : 'Исх.' }}
+          <div v-if="loadingCalls" class="loading-container">
+            <el-skeleton :rows="5" animated />
+          </div>
+          <div v-else-if="recentCalls.length === 0" class="empty-container">
+            <el-empty description="Нет звонков" :image-size="80" />
+          </div>
+          <div v-else class="calls-list">
+            <div v-for="call in recentCalls" :key="call.id" class="call-item">
+              <div class="call-main">
+                <el-tag :type="call.call_type === 'incoming' ? 'success' : 'primary'" size="small" class="call-type-tag">
+                  {{ call.call_type === 'incoming' ? 'Входящий' : 'Исходящий' }}
                 </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="caller_number" label="Номер" />
-            <el-table-column label="Длительность" width="100">
-              <template #default="{ row }">
-                {{ formatDuration(row.duration) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="Стоимость" width="90">
-              <template #default="{ row }">
-                {{ row.cost?.toFixed(2) || '0.00' }} ₽
-              </template>
-            </el-table-column>
-            <el-table-column label="Дата" width="130">
-              <template #default="{ row }">
-                {{ formatDate(row.started_at) }}
-              </template>
-            </el-table-column>
-          </el-table>
-          <el-empty v-if="!loadingCalls && recentCalls.length === 0" description="Нет звонков" :image-size="60" />
+                <span class="call-number">{{ call.caller_number }}</span>
+                <el-icon class="call-arrow"><Right /></el-icon>
+                <span class="call-number">{{ call.called_number }}</span>
+              </div>
+              <div class="call-details">
+                <span class="call-duration">{{ formatDuration(call.duration) }}</span>
+                <span class="call-cost">{{ call.cost?.toFixed(2) || '0.00' }} ₽</span>
+                <span class="call-date">{{ formatDate(call.started_at) }}</span>
+              </div>
+            </div>
+          </div>
         </el-card>
       </el-col>
 
@@ -64,21 +61,30 @@
               <span>Информация</span>
             </div>
           </template>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="Пользователь">{{ user?.username }}</el-descriptions-item>
-            <el-descriptions-item label="Email">{{ user?.email }}</el-descriptions-item>
-            <el-descriptions-item label="Телефон">{{ user?.phone || 'Не указан' }}</el-descriptions-item>
-            <el-descriptions-item label="Баланс">
-              <span style="color: var(--el-color-primary); font-weight: 600;">
-                {{ user?.balance?.toFixed(2) || '0.00' }} ₽
-              </span>
-            </el-descriptions-item>
-            <el-descriptions-item label="Статус">
+          <div class="profile-info">
+            <div class="info-row">
+              <span class="info-label">Пользователь</span>
+              <span class="info-value">{{ user?.username }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Email</span>
+              <span class="info-value">{{ user?.email }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Телефон</span>
+              <span class="info-value">{{ user?.phone || 'Не указан' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Баланс</span>
+              <span class="info-value balance-value">{{ user?.balance?.toFixed(2) || '0.00' }} ₽</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Статус</span>
               <el-tag :type="user?.is_active ? 'success' : 'danger'" size="small">
                 {{ user?.is_active ? 'Активен' : 'Неактивен' }}
               </el-tag>
-            </el-descriptions-item>
-          </el-descriptions>
+            </div>
+          </div>
         </el-card>
 
         <el-card class="system-status-card" style="margin-top: 16px" v-if="isRoot">
@@ -109,7 +115,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { statsAPI } from '@/api/stats'
 import apiClient from '@/api/client'
-import { Phone, Connection, Wallet, UserFilled, ArrowRight } from '@element-plus/icons-vue'
+import { Phone, Connection, Wallet, ArrowRight, Right } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const authStore = useAuthStore()
@@ -304,6 +310,100 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(45, 90, 61, 0.2);
 }
 
+.loading-container,
+.empty-container {
+  padding: 20px 0;
+}
+
+.calls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.call-item {
+  padding: 12px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter);
+  transition: all 0.2s;
+}
+
+.call-item:hover {
+  background: var(--el-fill-color);
+  border-color: var(--el-border-color);
+}
+
+.call-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.call-type-tag {
+  flex-shrink: 0;
+}
+
+.call-number {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  font-size: 13px;
+}
+
+.call-arrow {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.call-details {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.call-duration,
+.call-cost {
+  font-weight: 500;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.info-value {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.balance-value {
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+
 .status-item {
   display: flex;
   justify-content: space-between;
@@ -329,6 +429,15 @@ onMounted(() => {
   
   .stat-value {
     font-size: 18px;
+  }
+  
+  .call-main {
+    font-size: 12px;
+  }
+  
+  .call-details {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 </style>
