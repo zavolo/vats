@@ -52,19 +52,19 @@
                 <el-icon><HomeFilled /></el-icon>
                 <template #title><span>Главная</span></template>
               </el-menu-item>
-              <el-menu-item index="/calls" v-if="canReadCalls">
+              <el-menu-item index="/calls" v-show="canReadCalls">
                 <el-icon><Phone /></el-icon>
                 <template #title><span>Звонки</span></template>
               </el-menu-item>
-              <el-menu-item index="/dongles" v-if="canReadDongles">
+              <el-menu-item index="/dongles" v-show="canReadDongles">
                 <el-icon><Connection /></el-icon>
                 <template #title><span>Донглы</span></template>
               </el-menu-item>
-              <el-menu-item index="/users" v-if="canReadUsers">
+              <el-menu-item index="/users" v-show="canReadUsers">
                 <el-icon><UserFilled /></el-icon>
                 <template #title><span>Пользователи</span></template>
               </el-menu-item>
-              <el-menu-item index="/companies" v-if="canReadCompanies">
+              <el-menu-item index="/companies" v-show="canReadCompanies">
                 <el-icon><OfficeBuilding /></el-icon>
                 <template #title><span>Компании</span></template>
               </el-menu-item>
@@ -232,7 +232,7 @@ watch(() => route.path, () => {
 }
 
 .el-menu-item {
-  transition: none !important;
+  transition: background-color 0.3s, color 0.3s !important;
 }
 
 .main-content {
