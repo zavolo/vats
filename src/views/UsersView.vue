@@ -18,8 +18,8 @@
       </template>
 
       <el-table :data="users" v-loading="loading" style="width: 100%" stripe size="small">
-        <el-table-column type="index" label="#" width="60" :index="getIndex" />
-        <el-table-column prop="username" label="Имя" width="130" />
+        <el-table-column label="ID" width="60" type="index" :index="getRowIndex" />
+        <el-table-column prop="username" label="Логин" width="130" />
         <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
         <el-table-column prop="phone" label="Телефон" width="130" />
         <el-table-column label="Баланс" width="100">
@@ -78,7 +78,7 @@
 
     <el-dialog v-model="showCreateDialog" title="Добавить пользователя" width="500px">
       <el-form :model="createForm" label-width="120px" size="default">
-        <el-form-item label="Имя" required>
+        <el-form-item label="Логин" required>
           <el-input v-model="createForm.username" placeholder="username" />
         </el-form-item>
         <el-form-item label="Email" required>
@@ -155,16 +155,21 @@ const createForm = ref({ username: '', email: '', password: '', phone: '' })
 const editForm = ref({ email: '', phone: '', is_active: true })
 const balanceForm = ref({ amount: 0 })
 
-const getIndex = (index) => {
+const getRowIndex = (index) => {
   return (pagination.value.page - 1) * pagination.value.limit + index + 1
 }
 
 const loadUsers = async () => {
   try {
     loading.value = true
-    const params = { skip: (pagination.value.page - 1) * pagination.value.limit, limit: pagination.value.limit }
+    const params = { 
+      skip: (pagination.value.page - 1) * pagination.value.limit, 
+      limit: pagination.value.limit,
+      sort_by: 'id',
+      sort_order: 'asc'
+    }
     const response = await apiClient.get('/users', { params })
-    users.value = response.data
+    users.value = response.data.sort((a, b) => a.id - b.id)
     pagination.value.total = response.data.length
   } catch (error) {
     console.error('Ошибка загрузки пользователей:', error)
