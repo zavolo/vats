@@ -1,201 +1,190 @@
 <template>
-  <div class="dashboard">
-    <el-container>
-      <el-header class="header">
-        <div class="header-left">
-          <el-button 
-            :icon="Expand" 
-            circle 
-            @click="toggleSidebar"
-            class="sidebar-toggle"
-          />
-          <h2>Виртуальная АТС</h2>
-        </div>
-        <div class="header-right">
-          <el-space :size="20">
-            <div class="balance">
-              <el-icon><Wallet /></el-icon>
-              <span>Баланс: {{ user?.balance?.toFixed(2) || '0.00' }} ₽</span>
+  <div class="dashboard-view">
+    <div class="welcome-banner">
+      <h1>Добро пожаловать, {{ user?.username }}!</h1>
+      <p>{{ currentGreeting }}</p>
+    </div>
+
+    <el-row :gutter="20" v-loading="loading">
+      <el-col :xs="24" :sm="12" :md="6" v-for="stat in visibleStats" :key="stat.key">
+        <el-card class="stat-card" :class="`stat-${stat.type}`">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon :size="32" :color="stat.color">
+                <component :is="stat.icon" />
+              </el-icon>
             </div>
-            <el-dropdown @command="handleCommand">
-              <span class="user-dropdown">
-                <el-icon><User /></el-icon>
-                {{ user?.username }}
-                <el-icon><ArrowDown /></el-icon>
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="profile">
-                    <el-icon><User /></el-icon>
-                    Профиль
-                  </el-dropdown-item>
-                  <el-dropdown-item command="settings">
-                    <el-icon><Setting /></el-icon>
-                    Настройки
-                  </el-dropdown-item>
-                  <el-dropdown-item divided command="logout">
-                    <el-icon><SwitchButton /></el-icon>
-                    Выход
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </el-space>
-        </div>
-      </el-header>
-
-      <el-container>
-        <el-aside :width="sidebarCollapsed ? '64px' : '250px'" class="sidebar">
-          <el-menu
-            :default-active="activeMenu"
-            router
-            class="sidebar-menu"
-            :collapse="sidebarCollapsed"
-            :collapse-transition="false"
-          >
-            <el-menu-item 
-              v-for="item in menuItems" 
-              :key="item.index"
-              :index="item.index"
-            >
-              <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
-            </el-menu-item>
-          </el-menu>
-        </el-aside>
-
-        <el-main class="main-content">
-          <div class="welcome-section">
-            <el-row :gutter="20">
-              <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Всего звонков" :value="stats.totalCalls">
-                    <template #prefix>
-                      <el-icon style="color: #409eff"><Phone /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Звонков сегодня" :value="stats.totalCallsToday">
-                    <template #prefix>
-                      <el-icon style="color: #67c23a"><Phone /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Активных донглов" :value="stats.activeDongles">
-                    <template #prefix>
-                      <el-icon style="color: #67c23a"><Connection /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="6">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Баланс" :value="user?.balance || 0" :precision="2" suffix="₽">
-                    <template #prefix>
-                      <el-icon style="color: #e6a23c"><Wallet /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-            </el-row>
-
-            <el-row :gutter="20" style="margin-top: 20px">
-              <el-col :xs="24" :sm="12" :md="8">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Потрачено сегодня" :value="stats.totalSpentToday" :precision="2" suffix="₽">
-                    <template #prefix>
-                      <el-icon style="color: #f56c6c"><Wallet /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="8">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Потрачено за месяц" :value="stats.totalSpentMonth" :precision="2" suffix="₽">
-                    <template #prefix>
-                      <el-icon style="color: #f56c6c"><Wallet /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-              <el-col :xs="24" :sm="12" :md="8">
-                <el-card class="stat-card" v-loading="loading">
-                  <el-statistic title="Пользователей" :value="stats.totalUsers">
-                    <template #prefix>
-                      <el-icon style="color: #909399"><UserFilled /></el-icon>
-                    </template>
-                  </el-statistic>
-                </el-card>
-              </el-col>
-            </el-row>
-
-            <el-card class="info-card">
-              <template #header>
-                <div class="card-header">
-                  <span>Добро пожаловать в CloudPBX</span>
-                </div>
-              </template>
-              <div>
-                <p>Добро пожаловать, <strong>{{ user?.username }}</strong>!</p>
-                <p>Email: {{ user?.email }}</p>
-                <p>Статус: <el-tag :type="user?.is_active ? 'success' : 'danger'">{{ user?.is_active ? 'Активен' : 'Неактивен' }}</el-tag></p>
-                <el-divider />     
-                <h3>Быстрые действия:</h3>
-                <el-space wrap>
-                  <el-button v-if="permissionsStore.canRead('calls')" type="primary" @click="$router.push('/calls')">
-                    <el-icon><Phone /></el-icon>
-                    Просмотр звонков
-                  </el-button>
-                  <el-button v-if="permissionsStore.canRead('dongles')" type="success" @click="$router.push('/dongles')">
-                    <el-icon><Connection /></el-icon>
-                    Управление донглами
-                  </el-button>
-                  <el-button type="warning" @click="$router.push('/payments')">
-                    <el-icon><Wallet /></el-icon>
-                    Пополнить баланс
-                  </el-button>
-                </el-space>
-              </div>
-            </el-card>
+            <div class="stat-info">
+              <div class="stat-value">{{ stat.value }}</div>
+              <div class="stat-label">{{ stat.label }}</div>
+            </div>
           </div>
-        </el-main>
-      </el-container>
-    </el-container>
+          <div class="stat-footer" v-if="stat.footer">
+            <el-icon><TrendCharts /></el-icon>
+            <span>{{ stat.footer }}</span>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row :gutter="20" style="margin-top: 20px">
+      <el-col :xs="24" :lg="16">
+        <el-card class="activity-card">
+          <template #header>
+            <div class="card-header">
+              <span>Последние звонки</span>
+              <el-button text @click="$router.push('/calls')" v-if="permissionsStore.canRead('calls')">
+                Все звонки
+                <el-icon><ArrowRight /></el-icon>
+              </el-button>
+            </div>
+          </template>
+          <el-table
+            :data="recentCalls"
+            v-loading="loadingCalls"
+            style="width: 100%"
+            :show-header="true"
+          >
+            <el-table-column prop="call_type" label="Тип" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.call_type === 'incoming' ? 'success' : 'primary'" size="small">
+                  {{ row.call_type === 'incoming' ? 'Вх.' : 'Исх.' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="caller_number" label="Номер" />
+            <el-table-column label="Длительность" width="120">
+              <template #default="{ row }">
+                {{ formatDuration(row.duration) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="Стоимость" width="100">
+              <template #default="{ row }">
+                {{ row.cost?.toFixed(2) || '0.00' }} ₽
+              </template>
+            </el-table-column>
+            <el-table-column label="Дата" width="160">
+              <template #default="{ row }">
+                {{ formatDate(row.started_at) }}
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!loadingCalls && recentCalls.length === 0" description="Нет звонков" />
+        </el-card>
+      </el-col>
+
+      <el-col :xs="24" :lg="8">
+        <el-card class="quick-actions-card">
+          <template #header>
+            <div class="card-header">
+              <span>Быстрые действия</span>
+            </div>
+          </template>
+          <el-space direction="vertical" :size="12" style="width: 100%">
+            <el-button 
+              v-if="permissionsStore.canRead('calls')" 
+              type="primary" 
+              @click="$router.push('/calls')"
+              style="width: 100%"
+            >
+              <el-icon><Phone /></el-icon>
+              Просмотр звонков
+            </el-button>
+            <el-button 
+              v-if="permissionsStore.canRead('dongles')" 
+              type="success" 
+              @click="$router.push('/dongles')"
+              style="width: 100%"
+            >
+              <el-icon><Connection /></el-icon>
+              Управление донглами
+            </el-button>
+            <el-button 
+              v-if="permissionsStore.canRead('users')" 
+              @click="$router.push('/users')"
+              style="width: 100%"
+            >
+              <el-icon><UserFilled /></el-icon>
+              Пользователи
+            </el-button>
+            <el-button 
+              type="warning" 
+              @click="$router.push('/payments')"
+              style="width: 100%"
+            >
+              <el-icon><Wallet /></el-icon>
+              Пополнить баланс
+            </el-button>
+          </el-space>
+
+          <el-divider />
+
+          <div class="system-status" v-if="isRoot">
+            <h4>Статус системы</h4>
+            <el-space direction="vertical" :size="8" style="width: 100%">
+              <div class="status-item">
+                <span>База данных</span>
+                <el-tag type="success" size="small">Подключено</el-tag>
+              </div>
+              <div class="status-item">
+                <span>Asterisk</span>
+                <el-tag :type="stats.activeDongles > 0 ? 'success' : 'warning'" size="small">
+                  {{ stats.activeDongles > 0 ? 'Активно' : 'Ожидание' }}
+                </el-tag>
+              </div>
+            </el-space>
+          </div>
+        </el-card>
+
+        <el-card class="info-card" style="margin-top: 20px">
+          <template #header>
+            <div class="card-header">
+              <span>Информация</span>
+            </div>
+          </template>
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="Email">{{ user?.email }}</el-descriptions-item>
+            <el-descriptions-item label="Телефон">{{ user?.phone || 'Не указан' }}</el-descriptions-item>
+            <el-descriptions-item label="Статус">
+              <el-tag :type="user?.is_active ? 'success' : 'danger'" size="small">
+                {{ user?.is_active ? 'Активен' : 'Неактивен' }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="Роли" v-if="userRoles.length > 0">
+              <el-space wrap>
+                <el-tag v-for="role in userRoles" :key="role" size="small">{{ role }}</el-tag>
+              </el-space>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
+
 <script setup>
-import { computed, ref, onMounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { statsAPI } from '@/api/stats'
+import apiClient from '@/api/client'
 import { 
-  User, 
-  Setting, 
-  SwitchButton, 
-  Wallet, 
-  ArrowDown,
-  HomeFilled,
   Phone,
   Connection,
+  Wallet,
   UserFilled,
-  Expand
+  TrendCharts,
+  ArrowRight
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
-const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 const permissionsStore = usePermissionsStore()
+
 const user = computed(() => authStore.user)
-const activeMenu = computed(() => route.path)
-const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
+const loading = ref(false)
+const loadingCalls = ref(false)
+const recentCalls = ref([])
 
 const stats = ref({
   totalCalls: 0,
@@ -207,54 +196,66 @@ const stats = ref({
   totalSpentMonth: 0
 })
 
-const loading = ref(false)
+const isRoot = computed(() => 
+  user.value?.roles?.some(role => role.name === 'root') || false
+)
 
-const menuItems = computed(() => {
-  const items = [
+const userRoles = computed(() => 
+  user.value?.roles?.map(role => role.name) || []
+)
+
+const currentGreeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 6) return 'Доброй ночи! Вы работаете поздно.'
+  if (hour < 12) return 'Доброе утро! Продуктивного дня.'
+  if (hour < 18) return 'Добрый день! Успехов в работе.'
+  return 'Добрый вечер! Завершайте день с успехом.'
+})
+
+const visibleStats = computed(() => {
+  const allStats = [
     {
-      index: '/',
-      icon: HomeFilled,
-      label: 'Главная',
+      key: 'calls',
+      type: 'primary',
+      icon: Phone,
+      color: '#409eff',
+      value: stats.value.totalCalls,
+      label: 'Всего звонков',
+      footer: `Сегодня: ${stats.value.totalCallsToday}`,
       show: true
     },
     {
-      index: '/calls',
-      icon: Phone,
-      label: 'Звонки',
-      show: permissionsStore.canRead('calls')
-    },
-    {
-      index: '/dongles',
+      key: 'dongles',
+      type: 'success',
       icon: Connection,
-      label: 'Донглы',
+      color: '#67c23a',
+      value: stats.value.activeDongles,
+      label: 'Активных донглов',
       show: permissionsStore.canRead('dongles')
     },
     {
-      index: '/users',
+      key: 'users',
+      type: 'info',
       icon: UserFilled,
-      label: 'Пользователи',
-      show: permissionsStore.canRead('users')
+      color: '#909399',
+      value: stats.value.totalUsers,
+      label: 'Пользователей',
+      show: isRoot.value
     },
     {
-      index: '/payments',
+      key: 'balance',
+      type: 'warning',
       icon: Wallet,
-      label: 'Платежи',
-      show: true
-    },
-    {
-      index: '/settings',
-      icon: Setting,
-      label: 'Настройки',
+      color: '#e6a23c',
+      value: `${(user.value?.balance || 0).toFixed(2)} ₽`,
+      label: 'Баланс',
+      footer: `Потрачено сегодня: ${stats.value.totalSpentToday.toFixed(2)} ₽`,
       show: true
     }
   ]
-  return items.filter(item => item.show)
+  
+  return allStats.filter(stat => stat.show)
 })
-
-const toggleSidebar = () => {
-  sidebarCollapsed.value = !sidebarCollapsed.value
-  localStorage.setItem('sidebarCollapsed', sidebarCollapsed.value)
-}
 
 const loadStats = async () => {
   try {
@@ -277,139 +278,153 @@ const loadStats = async () => {
   }
 }
 
-watch(user, (newUser) => {
-  if (newUser) {
-    loadStats()
+const loadRecentCalls = async () => {
+  if (!permissionsStore.canRead('calls')) return
+  
+  try {
+    loadingCalls.value = true
+    const response = await apiClient.get('/calls', { 
+      params: { skip: 0, limit: 5 } 
+    })
+    recentCalls.value = response.data
+  } catch (error) {
+    console.error('Ошибка загрузки звонков:', error)
+  } finally {
+    loadingCalls.value = false
   }
-}, { immediate: false })
+}
+
+const formatDuration = (seconds) => {
+  if (!seconds) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 
 onMounted(() => {
-  if (!permissionsStore.permissions.length) {
-    permissionsStore.fetchPermissions()
-  }
-  if (user.value) {
-    loadStats()
-  }
+  loadStats()
+  loadRecentCalls()
 })
-
-const handleCommand = (command) => {
-  switch (command) {
-    case 'profile':
-      router.push('/profile')
-      break
-    case 'settings':
-      router.push('/settings')
-      break
-    case 'logout':
-      authStore.logout()
-      ElMessage.success('Вы вышли из системы')
-      break
-  }
-}
 </script>
+
 <style scoped>
-.dashboard {
-  min-height: 100vh;
-  background-color: var(--el-bg-color-page);
+.dashboard-view {
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.header {
-  background: var(--el-bg-color-overlay);
-  box-shadow: 0 2px 8px rgba(45, 90, 61, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--el-border-color);
+.welcome-banner {
+  background: linear-gradient(135deg, var(--el-color-primary) 0%, var(--el-color-primary-light-3) 100%);
+  padding: 30px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(45, 90, 61, 0.4);
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.header-left h2 {
-  margin: 0;
-  color: var(--el-text-color-primary);
-  font-size: 20px;
-}
-
-.sidebar-toggle {
-  background-color: var(--el-fill-color-light);
-  border-color: var(--el-border-color);
-  color: var(--el-text-color-regular);
-}
-
-.sidebar-toggle:hover {
-  background-color: var(--el-color-primary);
-  border-color: var(--el-color-primary);
+.welcome-banner h1 {
+  margin: 0 0 10px 0;
   color: #ffffff;
+  font-size: 28px;
+  font-weight: 600;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.balance {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  color: var(--el-color-primary-light-7);
-}
-
-.user-dropdown {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.user-dropdown:hover {
-  background-color: var(--el-fill-color-light);
-}
-
-.sidebar {
-  background: var(--el-bg-color-overlay);
-  box-shadow: 2px 0 8px rgba(45, 90, 61, 0.2);
-  border-right: 1px solid var(--el-border-color);
-  min-height: calc(100vh - 60px);
-  transition: width 0.2s ease;
-  overflow: hidden;
-}
-
-.sidebar-menu {
-  border: none;
-  height: 100%;
-  min-height: calc(100vh - 60px);
-  transition: none;
-}
-
-.main-content {
-  padding: 20px;
+.welcome-banner p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 16px;
 }
 
 .stat-card {
   margin-bottom: 20px;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition: all 0.3s;
+  cursor: pointer;
 }
 
 .stat-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(45, 90, 61, 0.4);
+  box-shadow: 0 6px 16px rgba(45, 90, 61, 0.5);
 }
 
+.stat-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.stat-icon {
+  padding: 15px;
+  border-radius: 12px;
+  background: var(--el-fill-color-light);
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+}
+
+.stat-footer {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.activity-card,
+.quick-actions-card,
 .info-card {
   box-shadow: 0 2px 8px rgba(45, 90, 61, 0.3);
 }
 
-.card-header {
+.system-status h4 {
+  margin: 0 0 15px 0;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
   font-weight: 600;
-  font-size: 16px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.status-item span {
+  color: var(--el-text-color-regular);
 }
 </style>
