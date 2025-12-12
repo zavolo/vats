@@ -18,8 +18,8 @@
       </template>
 
       <el-table :data="users" v-loading="loading" style="width: 100%" stripe size="small">
-        <el-table-column label="ID" width="60" type="index" :index="getRowIndex" />
-        <el-table-column prop="username" label="Логин" width="130" />
+        <el-table-column label="№" width="60" type="index" :index="getRowIndex" />
+        <el-table-column prop="username" label="Имя" width="130" />
         <el-table-column prop="email" label="Email" min-width="180" show-overflow-tooltip />
         <el-table-column prop="phone" label="Телефон" width="130" />
         <el-table-column label="Баланс" width="100">
@@ -78,7 +78,7 @@
 
     <el-dialog v-model="showCreateDialog" title="Добавить пользователя" width="500px">
       <el-form :model="createForm" label-width="120px" size="default">
-        <el-form-item label="Логин" required>
+        <el-form-item label="Имя" required>
           <el-input v-model="createForm.username" placeholder="username" />
         </el-form-item>
         <el-form-item label="Email" required>
@@ -166,9 +166,16 @@ const loadUsers = async () => {
       skip: (pagination.value.page - 1) * pagination.value.limit, 
       limit: pagination.value.limit,
       sort_by: 'id',
-      sort_order: 'asc'
+      sort_order: 'asc',
+      _t: Date.now()
     }
-    const response = await apiClient.get('/users', { params })
+    const response = await apiClient.get('/users', { 
+      params,
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     users.value = response.data.sort((a, b) => a.id - b.id)
     pagination.value.total = response.data.length
   } catch (error) {
@@ -189,8 +196,8 @@ const createUser = async () => {
     await apiClient.post('/users', createForm.value)
     ElMessage.success('Пользователь создан')
     showCreateDialog.value = false
-    loadUsers()
     createForm.value = { username: '', email: '', password: '', phone: '' }
+    await loadUsers()
   } catch (error) {
     console.error('Ошибка создания пользователя:', error)
     ElMessage.error(error.response?.data?.detail || 'Не удалось создать пользователя')
@@ -211,7 +218,7 @@ const updateUser = async () => {
     await apiClient.put(`/users/${currentUser.value.id}`, editForm.value)
     ElMessage.success('Пользователь обновлен')
     showEditDialog.value = false
-    loadUsers()
+    await loadUsers()
   } catch (error) {
     console.error('Ошибка обновления пользователя:', error)
     ElMessage.error('Не удалось обновить пользователя')
@@ -242,7 +249,7 @@ const updateBalance = async () => {
     await apiClient.post(`/users/${currentUser.value.id}/balance`, balanceForm.value)
     ElMessage.success('Баланс изменен')
     showBalanceDialog.value = false
-    loadUsers()
+    await loadUsers()
   } catch (error) {
     console.error('Ошибка изменения баланса:', error)
     ElMessage.error('Не удалось изменить баланс')
@@ -281,7 +288,7 @@ const deleteUser = async (user) => {
     })
     await apiClient.delete(`/users/${user.id}`)
     ElMessage.success('Пользователь удален')
-    loadUsers()
+    await loadUsers()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления пользователя:', error)
