@@ -284,7 +284,13 @@ const loadDongles = async () => {
 const syncDongles = async () => {
   try {
     syncing.value = true
-    const response = await apiClient.get('/dongles/sync')
+    const response = await apiClient.get('/dongles/sync', {
+      params: { _t: Date.now() },
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     ElMessage.success(response.data.message || `Синхронизировано донглов: ${response.data.count}`)
     await loadDongles()
   } catch (error) {
