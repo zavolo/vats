@@ -123,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
 import { statsAPI } from '@/api/stats'
@@ -151,7 +151,10 @@ const getRoleType = (roleName) => {
 
 const loadProfile = () => {
   if (user.value) {
-    editForm.value = { email: user.value.email || '', phone: user.value.phone || '' }
+    editForm.value = { 
+      email: user.value.email || '', 
+      phone: user.value.phone || '' 
+    }
   }
 }
 
@@ -177,6 +180,7 @@ const updateProfile = async () => {
     saving.value = true
     await apiClient.put(`/users/${user.value.id}`, editForm.value)
     await authStore.fetchUser(true)
+    loadProfile()
     ElMessage.success('Профиль обновлен')
   } catch (error) {
     console.error('Ошибка обновления профиля:', error)
@@ -210,6 +214,10 @@ const changePassword = async () => {
     changingPassword.value = false
   }
 }
+
+watch(user, () => {
+  loadProfile()
+}, { deep: true })
 
 onMounted(() => {
   loadProfile()

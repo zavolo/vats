@@ -53,7 +53,9 @@
 
         <el-main class="main-content">
           <router-view v-slot="{ Component }">
-            <component :is="Component" :key="$route.fullPath" />
+            <transition name="fade" mode="out-in">
+              <component :is="Component" :key="$route.fullPath" />
+            </transition>
           </router-view>
         </el-main>
       </el-container>
@@ -66,7 +68,7 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
-import { User, Setting, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard } from '@element-plus/icons-vue'
+import { User, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -86,8 +88,7 @@ const menuItems = computed(() => {
     { index: '/users', icon: UserFilled, label: 'Пользователи', show: permissionsStore.canRead('users') },
     { index: '/companies', icon: OfficeBuilding, label: 'Компании', show: permissionsStore.canRead('companies') },
     { index: '/tariffs', icon: Tickets, label: 'Тарифы', show: true },
-    { index: '/payments', icon: CreditCard, label: 'Платежи', show: true },
-    { index: '/settings', icon: Setting, label: 'Настройки', show: true }
+    { index: '/payments', icon: CreditCard, label: 'Платежи', show: true }
   ]
   return items.filter(item => item.show)
 })
@@ -158,6 +159,7 @@ watch(() => route.path, () => {
   background-color: var(--el-fill-color-light);
   border-color: var(--el-border-color);
   color: var(--el-text-color-regular);
+  transition: all 0.3s;
 }
 
 .sidebar-toggle:hover {
@@ -199,19 +201,31 @@ watch(() => route.path, () => {
   background: var(--el-bg-color-overlay);
   box-shadow: 2px 0 8px rgba(45, 90, 61, 0.2);
   border-right: 1px solid var(--el-border-color);
-  transition: width 0.3s;
+  transition: width 0.3s ease;
   overflow: hidden;
 }
 
 .sidebar-menu {
   border: none;
   height: 100%;
+  transition: none;
 }
 
 .main-content {
   padding: 0;
   background-color: var(--el-bg-color-page);
   overflow-x: hidden;
+  min-height: calc(100vh - 56px);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 768px) {
