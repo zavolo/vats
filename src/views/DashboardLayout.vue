@@ -42,10 +42,18 @@
       <el-container>
         <el-aside :width="sidebarWidth" class="sidebar">
           <el-scrollbar>
-            <el-menu :default-active="activeMenu" router class="sidebar-menu" :collapse="sidebarCollapsed">
+            <el-menu 
+              :default-active="activeMenu" 
+              router 
+              class="sidebar-menu" 
+              :collapse="sidebarCollapsed"
+              :unique-opened="false"
+            >
               <el-menu-item v-for="item in menuItems" :key="item.index" :index="item.index">
                 <el-icon><component :is="item.icon" /></el-icon>
-                <span>{{ item.label }}</span>
+                <template #title>
+                  <span>{{ item.label }}</span>
+                </template>
               </el-menu-item>
             </el-menu>
           </el-scrollbar>
@@ -80,17 +88,22 @@ const activeMenu = computed(() => route.path)
 const sidebarCollapsed = ref(localStorage.getItem('sidebarCollapsed') === 'true')
 const sidebarWidth = computed(() => sidebarCollapsed.value ? '64px' : '200px')
 
+const allMenuItems = [
+  { index: '/', icon: HomeFilled, label: 'Главная', show: true },
+  { index: '/calls', icon: Phone, label: 'Звонки', permission: 'calls' },
+  { index: '/dongles', icon: Connection, label: 'Донглы', permission: 'dongles' },
+  { index: '/users', icon: UserFilled, label: 'Пользователи', permission: 'users' },
+  { index: '/companies', icon: OfficeBuilding, label: 'Компании', permission: 'companies' },
+  { index: '/tariffs', icon: Tickets, label: 'Тарифы', show: true },
+  { index: '/payments', icon: CreditCard, label: 'Платежи', show: true }
+]
+
 const menuItems = computed(() => {
-  const items = [
-    { index: '/', icon: HomeFilled, label: 'Главная', show: true },
-    { index: '/calls', icon: Phone, label: 'Звонки', show: permissionsStore.canRead('calls') },
-    { index: '/dongles', icon: Connection, label: 'Донглы', show: permissionsStore.canRead('dongles') },
-    { index: '/users', icon: UserFilled, label: 'Пользователи', show: permissionsStore.canRead('users') },
-    { index: '/companies', icon: OfficeBuilding, label: 'Компании', show: permissionsStore.canRead('companies') },
-    { index: '/tariffs', icon: Tickets, label: 'Тарифы', show: true },
-    { index: '/payments', icon: CreditCard, label: 'Платежи', show: true }
-  ]
-  return items.filter(item => item.show)
+  return allMenuItems.filter(item => {
+    if (item.show) return true
+    if (item.permission) return permissionsStore.canRead(item.permission)
+    return false
+  })
 })
 
 const toggleSidebar = () => {
