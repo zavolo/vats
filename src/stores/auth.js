@@ -20,9 +20,15 @@ export const useAuthStore = defineStore('auth', {
     async login(username, password) {
       this.loading = true
       this.error = null
+      
+      this.token = null
+      this.user = null
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      const permissionsStore = usePermissionsStore()
+      permissionsStore.clear()
+      
       try {
-        this.logout()
-        
         const response = await authAPI.login(username, password)
         this.token = response.data.access_token
         localStorage.setItem('token', this.token)
@@ -40,9 +46,15 @@ export const useAuthStore = defineStore('auth', {
     async register(data) {
       this.loading = true
       this.error = null
+      
+      this.token = null
+      this.user = null
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      const permissionsStore = usePermissionsStore()
+      permissionsStore.clear()
+      
       try {
-        this.logout()
-        
         const response = await authAPI.register(data)
         this.token = response.data.access_token
         localStorage.setItem('token', this.token)
