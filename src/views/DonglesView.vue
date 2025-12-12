@@ -5,7 +5,11 @@
         <div class="card-header">
           <span>Управление донглами</span>
           <el-space>
-            <el-button type="primary" @click="loadDongles" size="small">
+            <el-button type="info" @click="syncDongles" size="small" :loading="syncing">
+              <el-icon><RefreshRight /></el-icon>
+              Синхронизация
+            </el-button>
+            <el-button type="primary" @click="loadDongles" size="small" :loading="loading">
               <el-icon><Refresh /></el-icon>
               Обновить
             </el-button>
@@ -34,6 +38,17 @@
         </el-form-item>
       </el-form>
 
+      <el-alert v-if="dongles.length === 0 && !loading" type="info" :closable="false" style="margin-bottom: 16px">
+        <template #default>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span>Донглы не найдены. Попробуйте синхронизировать с Asterisk.</span>
+            <el-button type="primary" size="small" @click="syncDongles" :loading="syncing">
+              Синхронизировать
+            </el-button>
+          </div>
+        </template>
+      </el-alert>
+
       <el-table :data="dongles" v-loading="loading" style="width: 100%" stripe size="small">
         <el-table-column prop="name" label="Имя" width="130" />
         <el-table-column prop="provider" label="Провайдер" width="110" />
@@ -53,6 +68,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="imei" label="IMEI" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="imsi" label="IMSI" min-width="140" show-overflow-tooltip />
         <el-table-column label="Действия" width="200" fixed="right">
           <template #default="{ row }">
             <el-space :size="4">
@@ -104,16 +120,28 @@
           <el-input v-model="createForm.name" placeholder="dongle0" />
         </el-form-item>
         <el-form-item label="Провайдер">
-          <el-input v-model="createForm.provider" placeholder="МТС" />
+          <el-input v-model="createForm.provider" placeholder="МТС, Билайн, МегаФон" />
         </el-form-item>
         <el-form-item label="IMEI">
-          <el-input v-model="createForm.imei" />
+          <el-input v-model="createForm.imei" placeholder="358705034571309" />
         </el-form-item>
         <el-form-item label="IMSI">
-          <el-input v-model="createForm.imsi" />
+          <el-input v-model="createForm.imsi" placeholder="250028755596504" />
         </el-form-item>
         <el-form-item label="Номер телефона">
-          <el-input v-model="createForm.phone_number" placeholder="+7..." />
+          <el-input v-model="createForm.phone_number" placeholder="+79991234567" />
+        </el-form-item>
+        <el-form-item label="Audio устройство">
+          <el-input v-model="createForm.audio_device" placeholder="/dev/ttyUSB1" />
+        </el-form-item>
+        <el-form-item label="Data устройство">
+          <el-input v-model="createForm.data_device" placeholder="/dev/ttyUSB2" />
+        </el-form-item>
+        <el-form-item label="Контекст">
+          <el-input v-model="createForm.context" placeholder="from-gsm-megafon" />
+        </el-form-item>
+        <el-form-item label="Группа">
+          <el-input-number v-model="createForm.group" :min="1" :max="99" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -130,6 +158,12 @@
         <el-form-item label="Номер телефона">
           <el-input v-model="editForm.phone_number" />
         </el-form-item>
+        <el-form-item label="Audio устройство">
+          <el-input v-model="editForm.audio_device" placeholder="/dev/ttyUSB1" />
+        </el-form-item>
+        <el-form-item label="Data устройство">
+          <el-input v-model="editForm.data_device" placeholder="/dev/ttyUSB2" />
+        </el-form-item>
         <el-form-item label="Активность">
           <el-switch v-model="editForm.is_active" />
         </el-form-item>
@@ -142,8 +176,11 @@
 
     <el-dialog v-model="showSmsDialog" title="Отправить SMS" width="500px">
       <el-form :model="smsForm" label-width="100px" size="default">
+        <el-form-item label="Донгл">
+          <el-input :value="currentDongle?.name" disabled />
+        </el-form-item>
         <el-form-item label="Номер" required>
-          <el-input v-model="smsForm.number" placeholder="+7..." />
+          <el-input v-model="smsForm.number" placeholder="+79991234567" />
         </el-form-item>
         <el-form-item label="Сообщение" required>
           <el-input v-model="smsForm.message" type="textarea" :rows="4" placeholder="Текст сообщения" maxlength="160" show-word-limit />
@@ -157,8 +194,11 @@
 
     <el-dialog v-model="showUssdDialog" title="Отправить USSD" width="400px">
       <el-form :model="ussdForm" label-width="100px" size="default">
+        <el-form-item label="Донгл">
+          <el-input :value="currentDongle?.name" disabled />
+        </el-form-item>
         <el-form-item label="USSD код" required>
-          <el-input v-model="ussdForm.ussd" placeholder="*100#" />
+          <el-input v-model="ussdForm.ussd" placeholder="*100#, *101#, *105#" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -171,7 +211,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Refresh, Plus, MoreFilled } from '@element-plus/icons-vue'
+import { Refresh, Plus, MoreFilled, RefreshRight } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import apiClient from '@/api/client'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -182,6 +222,7 @@ const dongles = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const sending = ref(false)
+const syncing = ref(false)
 const filters = ref({ isActive: null, isOnline: null })
 const pagination = ref({ page: 1, limit: 20, total: 0 })
 
@@ -190,8 +231,24 @@ const showEditDialog = ref(false)
 const showSmsDialog = ref(false)
 const showUssdDialog = ref(false)
 
-const createForm = ref({ name: '', provider: '', imei: '', imsi: '', phone_number: '' })
-const editForm = ref({ provider: '', phone_number: '', is_active: true })
+const createForm = ref({ 
+  name: '', 
+  provider: '', 
+  imei: '', 
+  imsi: '', 
+  phone_number: '',
+  audio_device: '',
+  data_device: '',
+  context: '',
+  group: 1
+})
+const editForm = ref({ 
+  provider: '', 
+  phone_number: '', 
+  audio_device: '',
+  data_device: '',
+  is_active: true 
+})
 const smsForm = ref({ number: '', message: '' })
 const ussdForm = ref({ ussd: '' })
 const currentDongle = ref(null)
@@ -206,6 +263,7 @@ const loadDongles = async () => {
     }
     if (filters.value.isActive !== null) params.is_active = filters.value.isActive
     if (filters.value.isOnline !== null) params.is_online = filters.value.isOnline
+    
     const response = await apiClient.get('/dongles', { 
       params,
       headers: {
@@ -223,6 +281,20 @@ const loadDongles = async () => {
   }
 }
 
+const syncDongles = async () => {
+  try {
+    syncing.value = true
+    const response = await apiClient.get('/dongles/sync')
+    ElMessage.success(response.data.message || `Синхронизировано донглов: ${response.data.count}`)
+    await loadDongles()
+  } catch (error) {
+    console.error('Ошибка синхронизации донглов:', error)
+    ElMessage.error(error.response?.data?.detail || 'Не удалось синхронизировать донглы с Asterisk')
+  } finally {
+    syncing.value = false
+  }
+}
+
 const createDongle = async () => {
   if (!createForm.value.name) {
     ElMessage.warning('Укажите имя донгла')
@@ -231,9 +303,19 @@ const createDongle = async () => {
   try {
     saving.value = true
     await apiClient.post('/dongles', createForm.value)
-    ElMessage.success('Донгл создан')
+    ElMessage.success('Донгл создан и настроен в Asterisk')
     showCreateDialog.value = false
-    createForm.value = { name: '', provider: '', imei: '', imsi: '', phone_number: '' }
+    createForm.value = { 
+      name: '', 
+      provider: '', 
+      imei: '', 
+      imsi: '', 
+      phone_number: '',
+      audio_device: '',
+      data_device: '',
+      context: '',
+      group: 1
+    }
     await loadDongles()
   } catch (error) {
     console.error('Ошибка создания донгла:', error)
@@ -245,7 +327,13 @@ const createDongle = async () => {
 
 const openEditDialog = (dongle) => {
   currentDongle.value = dongle
-  editForm.value = { provider: dongle.provider || '', phone_number: dongle.phone_number || '', is_active: dongle.is_active }
+  editForm.value = { 
+    provider: dongle.provider || '', 
+    phone_number: dongle.phone_number || '', 
+    audio_device: dongle.audio_device || '',
+    data_device: dongle.data_device || '',
+    is_active: dongle.is_active 
+  }
   showEditDialog.value = true
 }
 
@@ -253,12 +341,12 @@ const updateDongle = async () => {
   try {
     saving.value = true
     await apiClient.put(`/dongles/${currentDongle.value.id}`, editForm.value)
-    ElMessage.success('Донгл обновлен')
+    ElMessage.success('Донгл обновлен, изменения применены в Asterisk')
     showEditDialog.value = false
     await loadDongles()
   } catch (error) {
     console.error('Ошибка обновления донгла:', error)
-    ElMessage.error('Не удалось обновить донгл')
+    ElMessage.error(error.response?.data?.detail || 'Не удалось обновить донгл')
   } finally {
     saving.value = false
   }
@@ -296,7 +384,7 @@ const sendSms = async () => {
     showSmsDialog.value = false
   } catch (error) {
     console.error('Ошибка отправки SMS:', error)
-    ElMessage.error('Не удалось отправить SMS')
+    ElMessage.error(error.response?.data?.detail || 'Не удалось отправить SMS')
   } finally {
     sending.value = false
   }
@@ -314,7 +402,7 @@ const sendUssd = async () => {
     showUssdDialog.value = false
   } catch (error) {
     console.error('Ошибка отправки USSD:', error)
-    ElMessage.error('Не удалось отправить USSD')
+    ElMessage.error(error.response?.data?.detail || 'Не удалось отправить USSD')
   } finally {
     sending.value = false
   }
@@ -324,26 +412,31 @@ const reloadDongle = async (dongle) => {
   try {
     await apiClient.post(`/dongles/${dongle.id}/reload`)
     ElMessage.success('Донгл перезагружен')
+    setTimeout(() => loadDongles(), 2000)
   } catch (error) {
     console.error('Ошибка перезагрузки донгла:', error)
-    ElMessage.error('Не удалось перезагрузить донгл')
+    ElMessage.error(error.response?.data?.detail || 'Не удалось перезагрузить донгл')
   }
 }
 
 const deleteDongle = async (dongle) => {
   try {
-    await ElMessageBox.confirm(`Вы уверены, что хотите удалить донгл "${dongle.name}"?`, 'Подтверждение', {
-      confirmButtonText: 'Удалить',
-      cancelButtonText: 'Отмена',
-      type: 'warning'
-    })
+    await ElMessageBox.confirm(
+      `Вы уверены, что хотите удалить донгл "${dongle.name}"? Это также удалит его конфигурацию из Asterisk.`, 
+      'Подтверждение', 
+      {
+        confirmButtonText: 'Удалить',
+        cancelButtonText: 'Отмена',
+        type: 'warning'
+      }
+    )
     await apiClient.delete(`/dongles/${dongle.id}`)
-    ElMessage.success('Донгл удален')
+    ElMessage.success('Донгл удален из БД и Asterisk')
     await loadDongles()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления донгла:', error)
-      ElMessage.error('Не удалось удалить донгл')
+      ElMessage.error(error.response?.data?.detail || 'Не удалось удалить донгл')
     }
   }
 }
