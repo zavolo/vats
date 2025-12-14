@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>Управление Asterisk серверами</span>
+          <span>Управление серверами</span>
           <el-space>
             <el-button type="primary" @click="loadServers" size="small" :loading="loading">
               <el-icon><Refresh /></el-icon>
@@ -76,25 +76,25 @@
     <el-dialog v-model="showCreateDialog" title="Добавить Asterisk сервер" width="600px">
       <el-form :model="createForm" label-width="140px" size="default">
         <el-form-item label="Название" required>
-          <el-input v-model="createForm.name" placeholder="Asterisk Server 1" />
+          <el-input v-model="createForm.name" placeholder="" />
         </el-form-item>
         <el-form-item label="SIP Host" required>
-          <el-input v-model="createForm.sip_host" placeholder="192.168.1.10" />
+          <el-input v-model="createForm.sip_host" placeholder="" />
         </el-form-item>
         <el-form-item label="SIP Port">
           <el-input-number v-model="createForm.sip_port" :min="1" :max="65535" style="width: 100%" />
         </el-form-item>
         <el-form-item label="SIP Domain">
-          <el-input v-model="createForm.sip_domain" placeholder="pbx.example.com" />
+          <el-input v-model="createForm.sip_domain" placeholder="" />
         </el-form-item>
         <el-form-item label="AMI Host" required>
-          <el-input v-model="createForm.ami_host" placeholder="192.168.1.10" />
+          <el-input v-model="createForm.ami_host" placeholder="" />
         </el-form-item>
         <el-form-item label="AMI Port">
           <el-input-number v-model="createForm.ami_port" :min="1" :max="65535" style="width: 100%" />
         </el-form-item>
         <el-form-item label="AMI Username" required>
-          <el-input v-model="createForm.ami_username" placeholder="admin" />
+          <el-input v-model="createForm.ami_username" placeholder="" />
         </el-form-item>
         <el-form-item label="AMI Password" required>
           <el-input v-model="createForm.ami_password" type="password" show-password />
