@@ -28,6 +28,24 @@ const router = createRouter({
           meta: { permission: { resource: 'calls', action: 'read' } }
         },
         {
+          path: 'asterisk-servers',
+          name: 'asterisk-servers',
+          component: () => import('@/views/AsteriskServersView.vue'),
+          meta: { permission: { resource: 'companies', action: 'read' } }
+        },
+        {
+          path: 'sip-endpoints',
+          name: 'sip-endpoints',
+          component: () => import('@/views/SIPEndpointsView.vue'),
+          meta: { permission: { resource: 'sip', action: 'read' } }
+        },
+        {
+          path: 'ivr',
+          name: 'ivr',
+          component: () => import('@/views/IVRView.vue'),
+          meta: { permission: { resource: 'ivr', action: 'read' } }
+        },
+        {
           path: 'dongles',
           name: 'dongles',
           component: () => import('@/views/DonglesView.vue'),

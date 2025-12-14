@@ -4,7 +4,7 @@
       <el-header class="header">
         <div class="header-left">
           <el-button :icon="Expand" circle @click="toggleSidebar" class="sidebar-toggle" />
-          <h2>CloudPBX</h2>
+          <h2>Виртуальная АТС</h2>
         </div>
         <div class="header-right">
           <el-space :size="15">
@@ -38,7 +38,6 @@
           </el-space>
         </div>
       </el-header>
-
       <el-container>
         <el-aside :width="sidebarCollapsed ? '64px' : '200px'" class="sidebar" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
           <el-scrollbar>
@@ -56,6 +55,18 @@
               <el-menu-item index="/calls" v-show="canReadCalls">
                 <el-icon><Phone /></el-icon>
                 <template #title><span>Звонки</span></template>
+              </el-menu-item>
+              <el-menu-item index="/asterisk-servers" v-show="canReadCompanies">
+                <el-icon><Connection /></el-icon>
+                <template #title><span>Asterisk</span></template>
+              </el-menu-item>
+              <el-menu-item index="/sip-endpoints" v-show="canReadSIP">
+                <el-icon><Phone /></el-icon>
+                <template #title><span>SIP</span></template>
+              </el-menu-item>
+              <el-menu-item index="/ivr" v-show="canReadIVR">
+                <el-icon><Operation /></el-icon>
+                <template #title><span>IVR & Routing</span></template>
               </el-menu-item>
               <el-menu-item index="/dongles" v-show="canReadDongles">
                 <el-icon><Connection /></el-icon>
@@ -92,15 +103,13 @@
     </el-container>
   </div>
 </template>
-
 <script setup>
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
-import { User, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard, Setting } from '@element-plus/icons-vue'
+import { User, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard, Setting, Operation } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -113,6 +122,8 @@ const canReadCalls = computed(() => permissionsStore.canRead('calls'))
 const canReadDongles = computed(() => permissionsStore.canRead('dongles'))
 const canReadUsers = computed(() => permissionsStore.canRead('users'))
 const canReadCompanies = computed(() => permissionsStore.canRead('companies'))
+const canReadSIP = computed(() => permissionsStore.canRead('sip'))
+const canReadIVR = computed(() => permissionsStore.canRead('ivr'))
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
