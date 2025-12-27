@@ -113,25 +113,25 @@
         <el-form-item label="Название">
           <el-input v-model="editForm.name" />
         </el-form-item>
-        <el-form-item label="SIP Host">
+        <el-form-item label="SIP IP">
           <el-input v-model="editForm.sip_host" />
         </el-form-item>
-        <el-form-item label="SIP Port">
+        <el-form-item label="SIP Порт">
           <el-input-number v-model="editForm.sip_port" :min="1" :max="65535" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="SIP Domain">
+        <el-form-item label="SIP Домен">
           <el-input v-model="editForm.sip_domain" />
         </el-form-item>
-        <el-form-item label="AMI Host">
+        <el-form-item label="AMI IP">
           <el-input v-model="editForm.ami_host" />
         </el-form-item>
-        <el-form-item label="AMI Port">
+        <el-form-item label="AMI Порт">
           <el-input-number v-model="editForm.ami_port" :min="1" :max="65535" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="AMI Username">
+        <el-form-item label="AMI Логин">
           <el-input v-model="editForm.ami_username" />
         </el-form-item>
-        <el-form-item label="AMI Password">
+        <el-form-item label="AMI Пароль">
           <el-input v-model="editForm.ami_password" type="password" show-password placeholder="Оставьте пустым, чтобы не менять" />
         </el-form-item>
         <el-form-item label="Capacity">
