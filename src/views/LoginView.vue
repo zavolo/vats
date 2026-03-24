@@ -1,93 +1,119 @@
 <template>
   <div class="login-container">
-    <el-card class="login-card">
-      <template #header>
-        <div class="card-header">
-          <h2>{{ isRegister ? 'Регистрация' : 'Авторизация' }}</h2>
-        </div>
-      </template>
+    <div class="login-box">
+      <h2 class="login-title">Виртуальная АТС</h2>
+
+      <el-alert
+        v-if="errorMessage"
+        :title="errorMessage"
+        type="error"
+        :closable="true"
+        @close="errorMessage = ''"
+        show-icon
+      />
 
       <el-form
         ref="formRef"
         :model="form"
         :rules="rules"
-        label-position="top"
         @submit.prevent="handleSubmit"
       >
-        <el-form-item label="Логин" prop="username">
+        <el-form-item prop="username">
           <el-input
             v-model="form.username"
-            placeholder="Введите логин"
+            placeholder="Логин"
             size="large"
-          />
+            clearable
+          >
+            <template #prefix>
+              <el-icon><User /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
-        <el-form-item v-if="isRegister" label="Email" prop="email">
+        <el-form-item v-if="isRegister" prop="email">
           <el-input
             v-model="form.email"
             type="email"
-            placeholder="Введите email"
+            placeholder="Email"
             size="large"
-          />
+            clearable
+          >
+            <template #prefix>
+              <el-icon><Message /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
-        <el-form-item v-if="isRegister" label="Телефон" prop="phone">
+        <el-form-item v-if="isRegister" prop="phone">
           <el-input
             v-model="form.phone"
-            placeholder="Введите телефон"
+            placeholder="Телефон"
             size="large"
-          />
+            clearable
+          >
+            <template #prefix>
+              <el-icon><Phone /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
-        <el-form-item label="Пароль" prop="password">
+        <el-form-item prop="password">
           <el-input
             v-model="form.password"
             type="password"
-            placeholder="Введите пароль"
+            placeholder="Пароль"
             size="large"
             show-password
-          />
+          >
+            <template #prefix>
+              <el-icon><Lock /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
-        <el-form-item v-if="isRegister" label="Подтверждение пароля" prop="confirmPassword">
+        <el-form-item v-if="isRegister" prop="confirmPassword">
           <el-input
             v-model="form.confirmPassword"
             type="password"
             placeholder="Повторите пароль"
             size="large"
             show-password
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button
-            type="primary"
-            size="large"
-            :loading="authStore.loading"
-            native-type="submit"
-            style="width: 100%"
           >
-            {{ isRegister ? 'Зарегистрироваться' : 'Войти' }}
-          </el-button>
+            <template #prefix>
+              <el-icon><Lock /></el-icon>
+            </template>
+          </el-input>
         </el-form-item>
 
-        <div class="switch-mode">
+        <el-button
+          type="primary"
+          size="large"
+          :loading="authStore.loading"
+          native-type="submit"
+          class="login-button"
+        >
+          {{ isRegister ? 'Зарегистрироваться' : 'Войти' }}
+        </el-button>
+
+        <div class="toggle-mode">
           <el-link type="primary" @click="toggleMode">
-            {{ isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться' }}
+            {{ isRegister ? 'Уже есть аккаунт? Войти' : 'Регистрация' }}
           </el-link>
         </div>
       </el-form>
-    </el-card>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { ElMessage } from 'element-plus'
+import { User, Lock, Message, Phone } from '@element-plus/icons-vue'
 
 const authStore = useAuthStore()
 const formRef = ref()
+const errorMessage = ref('')
 const isRegister = ref(false)
 
 const form = reactive({
@@ -108,8 +134,7 @@ const validateConfirmPassword = (rule, value, callback) => {
 
 const rules = reactive({
   username: [
-    { required: true, message: 'Введите логин', trigger: 'blur' },
-    { min: 3, message: 'Минимум 3 символа', trigger: 'blur' }
+    { required: true, message: 'Введите логин', trigger: 'blur' }
   ],
   email: [
     { required: true, message: 'Введите email', trigger: 'blur' },
@@ -130,13 +155,15 @@ const rules = reactive({
 const toggleMode = () => {
   isRegister.value = !isRegister.value
   formRef.value?.resetFields()
-  authStore.error = null
+  errorMessage.value = ''
 }
 
 const handleSubmit = async () => {
+  errorMessage.value = ''
+
   try {
     await formRef.value.validate()
-    
+
     if (isRegister.value) {
       await authStore.register({
         username: form.username,
@@ -144,22 +171,23 @@ const handleSubmit = async () => {
         phone: form.phone,
         password: form.password
       })
-      ElMessage.success('Регистрация успешна!')
     } else {
       await authStore.login(form.username, form.password)
-      ElMessage.success('Вход выполнен!')
     }
   } catch (error) {
-    if (error.response?.data?.detail) {
+    if (error.response?.status === 502) {
+      errorMessage.value = 'Сервер временно недоступен. Попробуйте позже.'
+    } else if (error.response?.data?.detail) {
       const detail = error.response.data.detail
       if (Array.isArray(detail)) {
-        const message = detail.map(err => `${err.field}: ${err.message}`).join(', ')
-        ElMessage.error(message)
+        errorMessage.value = detail.map(err => `${err.field}: ${err.message}`).join(', ')
       } else {
-        ElMessage.error(detail)
+        errorMessage.value = detail
       }
+    } else if (error.message) {
+      errorMessage.value = error.message
     } else {
-      ElMessage.error('Произошла ошибка')
+      errorMessage.value = 'Неверный логин или пароль'
     }
   }
 }
@@ -175,22 +203,48 @@ const handleSubmit = async () => {
   padding: 20px;
 }
 
-.login-card {
+.login-box {
   width: 100%;
-  max-width: 450px;
+  max-width: 380px;
+  background: var(--el-bg-color-overlay);
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
-.card-header {
+.login-title {
   text-align: center;
-}
-
-.card-header h2 {
-  margin: 0;
+  margin: 0 0 30px 0;
   color: var(--el-text-color-primary);
+  font-size: 24px;
+  font-weight: 600;
 }
 
-.switch-mode {
-  text-align: center;
+.el-alert {
+  margin-bottom: 20px;
+}
+
+.el-form-item {
+  margin-bottom: 20px;
+}
+
+.login-button {
+  width: 100%;
   margin-top: 10px;
+}
+
+.toggle-mode {
+  text-align: center;
+  margin-top: 15px;
+}
+
+:deep(.el-input__inner:-webkit-autofill),
+:deep(.el-input__inner:-webkit-autofill:hover),
+:deep(.el-input__inner:-webkit-autofill:focus),
+:deep(.el-input__inner:-webkit-autofill:active) {
+  -webkit-text-fill-color: var(--el-text-color-primary) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--el-fill-color-blank) inset !important;
+  box-shadow: 0 0 0 1000px var(--el-fill-color-blank) inset !important;
+  transition: background-color 5000s ease-in-out 0s !important;
 }
 </style>

@@ -9,6 +9,10 @@ export const usePermissionsStore = defineStore('permissions', {
   }),
 
   getters: {
+    isRoot: (state) => state.roles.some(role => role.name === 'root'),
+    isAdmin: (state) => state.roles.some(role => role.name === 'admin'),
+    isUser: (state) => state.roles.some(role => role.name === 'user'),
+
     hasPermission: (state) => (resource, action) => {
       if (state.roles.some(role => role.name === 'root')) {
         return true
@@ -18,7 +22,7 @@ export const usePermissionsStore = defineStore('permissions', {
              (p.resource === '*' && p.action === '*')
       )
     },
-    
+
     canRead: (state) => (resource) => {
       if (state.roles.some(role => role.name === 'root')) {
         return true

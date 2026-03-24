@@ -1,67 +1,72 @@
 <template>
   <div class="asterisk-servers-view">
-    <el-card>
+    <el-card class="compact-card">
       <template #header>
         <div class="card-header">
-          <span>Управление серверами</span>
-          <el-space>
-            <el-button type="primary" @click="loadServers" size="small" :loading="loading">
-              <el-icon><Refresh /></el-icon>
+          <span>Управление серверами Asterisk</span>
+          <div class="header-actions">
+            <el-button type="primary" @click="loadServers" size="small" :icon="Refresh">
               Обновить
             </el-button>
-            <el-button type="success" @click="showCreateDialog = true" size="small" v-if="permissionsStore.hasPermission('companies', 'create')">
-              <el-icon><Plus /></el-icon>
-              Добавить сервер
+            <el-button type="success" @click="showCreateDialog = true" size="small" :icon="Plus" v-if="permissionsStore.hasPermission('asterisk-servers', 'create')">
+              Добавить
             </el-button>
-          </el-space>
+          </div>
         </div>
       </template>
-      <el-table :data="servers" v-loading="loading" style="width: 100%" stripe size="small">
-        <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="name" label="Название" width="150" />
-        <el-table-column label="SIP" width="180">
-          <template #default="{ row }">
-            {{ row.sip_host }}:{{ row.sip_port }}
-          </template>
-        </el-table-column>
-        <el-table-column label="AMI" width="180">
-          <template #default="{ row }">
-            {{ row.ami_host }}:{{ row.ami_port }}
-          </template>
-        </el-table-column>
-        <el-table-column label="Статус" width="100">
-          <template #default="{ row }">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span :style="{ 
-                width: '10px', 
-                height: '10px', 
-                borderRadius: '50%', 
-                backgroundColor: row.is_online ? '#67c23a' : '#909399',
-                display: 'inline-block'
-              }"></span>
-              <span>{{ row.is_online ? 'Онлайн' : 'Оффлайн' }}</span>
+
+      <div v-if="loading" class="loading-container">
+        <el-skeleton :rows="5" animated />
+      </div>
+
+      <div v-else-if="servers.length === 0" class="empty-container">
+        <el-empty description="Нет серверов" :image-size="80" />
+      </div>
+
+      <div v-else class="servers-list">
+        <div v-for="server in servers" :key="server.id" class="server-row">
+          <div class="server-status">
+            <div class="status-indicator" :class="{ online: server.is_online, offline: !server.is_online }"></div>
+          </div>
+
+          <div class="server-main">
+            <div class="server-name">
+              <span class="name">{{ server.name }}</span>
+              <el-tag v-if="!server.is_active" type="danger" size="small">Неактивен</el-tag>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="capacity" label="Capacity" width="90" />
-        <el-table-column prop="current_calls" label="Звонков" width="80" />
-        <el-table-column label="Действия" width="280" fixed="right">
-          <template #default="{ row }">
-            <el-space :size="4">
-              <el-button size="small" @click="openEditDialog(row)" v-if="permissionsStore.hasPermission('companies', 'update')">
-                Изменить
-              </el-button>
-              <el-button size="small" type="primary" @click="testConnection(row)">
-                Тест
-              </el-button>
-              <el-button size="small" type="danger" @click="deleteServer(row)" v-if="permissionsStore.hasPermission('companies', 'delete')">
-                Удалить
-              </el-button>
-            </el-space>
-          </template>
-        </el-table-column>
-      </el-table>
+            <div class="server-endpoints">
+              <span class="endpoint">
+                <span class="label">SIP:</span>
+                {{ server.sip_host }}:{{ server.sip_port }}
+              </span>
+              <span class="endpoint">
+                <span class="label">AMI:</span>
+                {{ server.ami_host }}:{{ server.ami_port }}
+              </span>
+            </div>
+          </div>
+
+          <div class="server-stats">
+            <div class="stat">
+              <span class="stat-value">{{ server.current_calls || 0 }}</span>
+              <span class="stat-label">{{ pluralize(server.current_calls || 0, ['звонок', 'звонка', 'звонков']) }}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value">{{ server.capacity || 100 }}</span>
+              <span class="stat-label">лимит</span>
+            </div>
+          </div>
+
+          <div class="server-actions">
+            <el-button size="small" @click="testConnection(server)" :icon="Connection" circle title="Тест подключения" />
+            <el-button size="small" @click="openEditDialog(server)" :icon="Edit" circle v-if="permissionsStore.hasPermission('asterisk-servers', 'update')" title="Редактировать" />
+            <el-button size="small" type="danger" @click="deleteServer(server)" :icon="Delete" circle v-if="permissionsStore.hasPermission('asterisk-servers', 'delete')" title="Удалить" />
+          </div>
+        </div>
+      </div>
+
       <el-pagination
+        v-if="servers.length > 0"
         v-model:current-page="pagination.page"
         v-model:page-size="pagination.limit"
         :total="pagination.total"
@@ -69,10 +74,11 @@
         layout="total, sizes, prev, pager, next"
         @size-change="loadServers"
         @current-change="loadServers"
-        style="margin-top: 16px; justify-content: center"
+        class="pagination"
         small
       />
     </el-card>
+
     <el-dialog v-model="showCreateDialog" title="Добавить Asterisk сервер" width="600px">
       <el-form :model="createForm" label-width="140px" size="default">
         <el-form-item label="Название" required>
@@ -96,7 +102,7 @@
         <el-form-item label="AMI Логин" required>
           <el-input v-model="createForm.ami_username" placeholder="" />
         </el-form-item>
-        <el-form-item label="AMI Паароль" required>
+        <el-form-item label="AMI Пароль" required>
           <el-input v-model="createForm.ami_password" type="password" show-password />
         </el-form-item>
         <el-form-item label="Capacity">
@@ -108,6 +114,7 @@
         <el-button type="primary" @click="createServer" :loading="saving">Создать</el-button>
       </template>
     </el-dialog>
+
     <el-dialog v-model="showEditDialog" title="Редактировать сервер" width="600px">
       <el-form :model="editForm" label-width="140px" size="default">
         <el-form-item label="Название">
@@ -148,13 +155,27 @@
     </el-dialog>
   </div>
 </template>
+
 <script setup>
 import { ref, onMounted, onActivated } from 'vue'
-import { Refresh, Plus } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Plus, Edit, Delete, Connection } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { useNotifications } from '@/composables/useNotifications'
 import apiClient from '@/api/client'
 import { usePermissionsStore } from '@/stores/permissions'
+
 const permissionsStore = usePermissionsStore()
+const notifications = useNotifications()
+
+const pluralize = (n, forms) => {
+  const num = Math.abs(n) % 100
+  const n1 = num % 10
+  if (num > 10 && num < 20) return forms[2]
+  if (n1 > 1 && n1 < 5) return forms[1]
+  if (n1 === 1) return forms[0]
+  return forms[2]
+}
+
 const servers = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -211,7 +232,7 @@ const loadServers = async () => {
     pagination.value.total = response.data.length
   } catch (error) {
     console.error('Ошибка загрузки серверов:', error)
-    ElMessage.error('Не удалось загрузить серверы')
+    notifications.error('Ошибка загрузки', 'Не удалось загрузить серверы')
   } finally {
     loading.value = false
   }
@@ -219,13 +240,13 @@ const loadServers = async () => {
 
 const createServer = async () => {
   if (!createForm.value.name || !createForm.value.sip_host || !createForm.value.ami_host || !createForm.value.ami_username || !createForm.value.ami_password) {
-    ElMessage.warning('Заполните все обязательные поля')
+    notifications.warning('Предупреждение', 'Заполните все обязательные поля')
     return
   }
   try {
     saving.value = true
     await apiClient.post('/asterisk-servers', createForm.value)
-    ElMessage.success('Сервер создан')
+    notifications.success('Успешно', 'Сервер создан')
     showCreateDialog.value = false
     createForm.value = {
       name: '',
@@ -241,7 +262,7 @@ const createServer = async () => {
     await loadServers()
   } catch (error) {
     console.error('Ошибка создания сервера:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось создать сервер')
+    notifications.error('Ошибка создания', error.response?.data?.detail || 'Не удалось создать сервер')
   } finally {
     saving.value = false
   }
@@ -272,12 +293,12 @@ const updateServer = async () => {
       delete updateData.ami_password
     }
     await apiClient.put(`/asterisk-servers/${currentServer.value.id}`, updateData)
-    ElMessage.success('Сервер обновлён')
+    notifications.success('Успешно', 'Сервер обновлён')
     showEditDialog.value = false
     await loadServers()
   } catch (error) {
     console.error('Ошибка обновления сервера:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось обновить сервер')
+    notifications.error('Ошибка обновления', error.response?.data?.detail || 'Не удалось обновить сервер')
   } finally {
     saving.value = false
   }
@@ -287,14 +308,14 @@ const testConnection = async (server) => {
   try {
     const response = await apiClient.post(`/asterisk-servers/${server.id}/test-connection`)
     if (response.data.status === 'online') {
-      ElMessage.success('Подключение установлено')
+      notifications.success('Успешно', 'Подключение установлено')
     } else {
-      ElMessage.warning(response.data.message || 'Подключение не установлено')
+      notifications.warning('Предупреждение', response.data.message || 'Подключение не установлено')
     }
     await loadServers()
   } catch (error) {
     console.error('Ошибка тестирования:', error)
-    ElMessage.error('Не удалось протестировать подключение')
+    notifications.error('Ошибка подключения', 'Не удалось протестировать подключение')
   }
 }
 
@@ -310,12 +331,12 @@ const deleteServer = async (server) => {
       }
     )
     await apiClient.delete(`/asterisk-servers/${server.id}`)
-    ElMessage.success('Сервер удалён')
+    notifications.success('Успешно', 'Сервер удалён')
     await loadServers()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления сервера:', error)
-      ElMessage.error('Не удалось удалить сервер')
+      notifications.error('Ошибка удаления', 'Не удалось удалить сервер')
     }
   }
 }
@@ -328,11 +349,25 @@ onActivated(() => {
   loadServers()
 })
 </script>
+
 <style scoped>
 .asterisk-servers-view {
-  padding: 16px;
-  max-width: 1400px;
+  padding: 12px;
+  max-width: 1200px;
   margin: 0 auto;
+}
+
+.compact-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.compact-card :deep(.el-card__header) {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.compact-card :deep(.el-card__body) {
+  padding: 12px;
 }
 
 .card-header {
@@ -343,9 +378,161 @@ onActivated(() => {
   font-weight: 600;
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.loading-container, .empty-container {
+  padding: 24px 0;
+}
+
+.servers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.server-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  transition: background-color 0.15s;
+}
+
+.server-row:hover {
+  background: var(--el-fill-color-light);
+}
+
+.server-status {
+  flex-shrink: 0;
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.status-indicator.online {
+  background: var(--el-color-success);
+  box-shadow: 0 0 6px var(--el-color-success);
+}
+
+.status-indicator.offline {
+  background: var(--el-color-info-light-5);
+}
+
+.server-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.server-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.server-name .name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.server-endpoints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.endpoint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+}
+
+.endpoint .label {
+  color: var(--el-text-color-placeholder);
+  margin-right: 4px;
+}
+
+.server-stats {
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 50px;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--el-text-color-secondary);
+  text-transform: uppercase;
+}
+
+.server-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pagination {
+  margin-top: 16px;
+  justify-content: center;
+}
+
 @media (max-width: 768px) {
   .asterisk-servers-view {
-    padding: 12px;
+    padding: 8px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .server-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .server-main {
+    flex: 1 1 calc(100% - 30px);
+  }
+
+  .server-stats {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 24px;
+  }
+
+  .server-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
 </style>

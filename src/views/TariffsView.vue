@@ -1,114 +1,122 @@
 <template>
   <div class="tariffs-view">
-    <el-card>
+    <el-card class="compact-card">
       <template #header>
         <div class="card-header">
           <span>Тарифные планы</span>
-          <el-space>
-            <el-button type="primary" @click="loadTariffs" size="small" :loading="loading">
-              <el-icon><Refresh /></el-icon>
-              Обновить
-            </el-button>
-            <el-button 
-              type="success" 
+          <div class="header-actions">
+            <el-button type="primary" @click="loadTariffs" size="small" :loading="loading" :icon="Refresh" />
+            <el-button
+              type="success"
               @click="showCreateDialog = true"
               size="small"
+              :icon="Plus"
               v-if="permissionsStore.hasPermission('tariffs', 'create')"
             >
-              <el-icon><Plus /></el-icon>
               Добавить
             </el-button>
-          </el-space>
+          </div>
         </div>
       </template>
 
-      <el-row :gutter="20" v-loading="loading">
-        <el-col 
-          :xs="24" 
-          :sm="12" 
-          :md="8" 
-          v-for="tariff in tariffs" 
+      <div v-if="loading" class="loading-container">
+        <el-skeleton :rows="5" animated />
+      </div>
+
+      <div v-else-if="tariffs.length === 0" class="empty-container">
+        <el-empty description="Нет доступных тарифов" :image-size="60" />
+      </div>
+
+      <div v-else class="tariffs-list">
+        <div
+          v-for="tariff in tariffs"
           :key="tariff.id"
-          style="margin-bottom: 20px"
+          class="tariff-row"
+          :class="{ inactive: !tariff.is_active }"
         >
-          <el-card class="tariff-card" :class="{ 'tariff-inactive': !tariff.is_active }">
+          <div class="tariff-index">#{{ tariff.id }}</div>
+
+          <div class="tariff-status">
+            <div class="status-indicator" :class="{ active: tariff.is_active }"></div>
+          </div>
+
+          <div class="tariff-main">
             <div class="tariff-header">
-              <h3>{{ tariff.name }}</h3>
+              <span class="tariff-name">{{ tariff.name }}</span>
               <el-tag :type="tariff.is_active ? 'success' : 'info'" size="small">
                 {{ tariff.is_active ? 'Активен' : 'Неактивен' }}
               </el-tag>
             </div>
-            <p class="tariff-description">{{ tariff.description || 'Описание отсутствует' }}</p>
-            <el-divider />
-            <div class="tariff-price">
-              <span class="price-value">{{ tariff.monthly_fee?.toFixed(2) || '0.00' }} ₽</span>
-              <span class="price-period">/месяц</span>
+            <div class="tariff-description" v-if="tariff.description">
+              {{ tariff.description }}
             </div>
-            <el-divider />
             <div class="tariff-features">
-              <div class="feature-item">
+              <span class="feature-item">
                 <el-icon color="#67c23a"><CircleCheck /></el-icon>
-                <span>{{ tariff.included_users }} пользователей</span>
-              </div>
-              <div class="feature-item">
+                {{ tariff.included_users }} польз.
+              </span>
+              <span class="feature-item">
                 <el-icon color="#67c23a"><CircleCheck /></el-icon>
-                <span>{{ tariff.included_numbers }} номеров</span>
-              </div>
-              <div class="feature-item" v-if="tariff.features?.recording">
+                {{ tariff.included_numbers }} номеров
+              </span>
+              <span class="feature-item" v-if="tariff.features?.recording">
                 <el-icon color="#67c23a"><CircleCheck /></el-icon>
-                <span>Запись звонков</span>
-              </div>
-              <div class="feature-item" v-if="tariff.features?.ivr">
+                Запись
+              </span>
+              <span class="feature-item" v-if="tariff.features?.ivr">
                 <el-icon color="#67c23a"><CircleCheck /></el-icon>
-                <span>Голосовое меню (IVR)</span>
-              </div>
-              <div class="feature-item" v-if="tariff.features?.sms">
+                IVR
+              </span>
+              <span class="feature-item" v-if="tariff.features?.sms">
                 <el-icon color="#67c23a"><CircleCheck /></el-icon>
-                <span>SMS уведомления</span>
-              </div>
+                SMS
+              </span>
             </div>
-            <el-divider />
-            <div class="tariff-actions">
-              <el-button 
-                type="primary" 
-                size="small"
-                @click="selectTariff(tariff)"
-                :disabled="!tariff.is_active"
-              >
-                Выбрать
-              </el-button>
-              <el-dropdown 
-                @command="(cmd) => handleCommand(cmd, tariff)"
-                v-if="permissionsStore.hasPermission('tariffs', 'update') || 
-                      permissionsStore.hasPermission('tariffs', 'delete')"
-              >
-                <el-button size="small">
-                  <el-icon><MoreFilled /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item 
-                      command="edit"
-                      v-if="permissionsStore.hasPermission('tariffs', 'update')"
-                    >
-                      Редактировать
-                    </el-dropdown-item>
-                    <el-dropdown-item 
-                      command="delete"
-                      divided
-                      v-if="permissionsStore.hasPermission('tariffs', 'delete')"
-                    >
-                      Удалить
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
+          </div>
 
-      <el-empty v-if="!loading && tariffs.length === 0" description="Нет доступных тарифов" />
+          <div class="tariff-price">
+            <span class="price-value">{{ tariff.monthly_fee?.toFixed(2) || '0.00' }} ₽</span>
+            <span class="price-period">/мес</span>
+          </div>
+
+          <div class="tariff-actions">
+            <el-button
+              type="primary"
+              size="small"
+              @click="selectTariff(tariff)"
+              :disabled="!tariff.is_active"
+            >
+              Выбрать
+            </el-button>
+            <el-dropdown
+              trigger="click"
+              @command="(cmd) => handleCommand(cmd, tariff)"
+              v-if="permissionsStore.hasPermission('tariffs', 'update') || permissionsStore.hasPermission('tariffs', 'delete')"
+            >
+              <el-button size="small" :icon="MoreFilled" />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    command="edit"
+                    v-if="permissionsStore.hasPermission('tariffs', 'update')"
+                  >
+                    <el-icon><Edit /></el-icon>
+                    Редактировать
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    command="delete"
+                    divided
+                    v-if="permissionsStore.hasPermission('tariffs', 'delete')"
+                  >
+                    <el-icon><Delete /></el-icon>
+                    Удалить
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </div>
+      </div>
     </el-card>
 
     <el-dialog v-model="showCreateDialog" title="Добавить тариф" width="700px">
@@ -160,6 +168,14 @@
         <el-form-item label="Номеров">
           <el-input-number v-model="editForm.included_numbers" :min="1" />
         </el-form-item>
+        <el-form-item label="Функции">
+          <el-checkbox-group v-model="editFeaturesList">
+            <el-checkbox label="recording">Запись звонков</el-checkbox>
+            <el-checkbox label="ivr">Голосовое меню</el-checkbox>
+            <el-checkbox label="sms">SMS уведомления</el-checkbox>
+            <el-checkbox label="analytics">Аналитика</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
         <el-form-item label="Активность">
           <el-switch v-model="editForm.is_active" />
         </el-form-item>
@@ -174,18 +190,21 @@
 
 <script setup>
 import { ref, onMounted, onActivated } from 'vue'
-import { Refresh, Plus, CircleCheck, MoreFilled } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, Plus, CircleCheck, MoreFilled, Edit, Delete } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { useNotifications } from '@/composables/useNotifications'
 import apiClient from '@/api/client'
 import { usePermissionsStore } from '@/stores/permissions'
 
 const permissionsStore = usePermissionsStore()
+const notifications = useNotifications()
 
 const tariffs = ref([])
 const loading = ref(false)
 const saving = ref(false)
 const currentTariff = ref(null)
 const featuresList = ref([])
+const editFeaturesList = ref([])
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
@@ -220,7 +239,7 @@ const loadTariffs = async () => {
     tariffs.value = response.data
   } catch (error) {
     console.error('Ошибка загрузки тарифов:', error)
-    ElMessage.error('Не удалось загрузить тарифы')
+    notifications.error('Ошибка загрузки', 'Не удалось загрузить тарифы')
   } finally {
     loading.value = false
   }
@@ -228,7 +247,7 @@ const loadTariffs = async () => {
 
 const createTariff = async () => {
   if (!createForm.value.name) {
-    ElMessage.warning('Укажите название тарифа')
+    notifications.warning('Предупреждение', 'Укажите название тарифа')
     return
   }
   try {
@@ -242,7 +261,7 @@ const createTariff = async () => {
       features
     }
     await apiClient.post('/tariffs', data)
-    ElMessage.success('Тариф создан')
+    notifications.success('Успешно', 'Тариф создан')
     showCreateDialog.value = false
     createForm.value = {
       name: '',
@@ -255,7 +274,7 @@ const createTariff = async () => {
     await loadTariffs()
   } catch (error) {
     console.error('Ошибка создания тарифа:', error)
-    ElMessage.error('Не удалось создать тариф')
+    notifications.error('Ошибка создания', 'Не удалось создать тариф')
   } finally {
     saving.value = false
   }
@@ -263,7 +282,7 @@ const createTariff = async () => {
 
 const handleCommand = (command, tariff) => {
   currentTariff.value = tariff
-  
+
   switch (command) {
     case 'edit':
       openEditDialog(tariff)
@@ -283,19 +302,43 @@ const openEditDialog = (tariff) => {
     included_numbers: tariff.included_numbers || 1,
     is_active: tariff.is_active
   }
+
+  // Загружаем features в чекбоксы
+  editFeaturesList.value = []
+  if (tariff.features) {
+    Object.keys(tariff.features).forEach(feature => {
+      if (tariff.features[feature]) {
+        editFeaturesList.value.push(feature)
+      }
+    })
+  }
+
   showEditDialog.value = true
 }
 
 const updateTariff = async () => {
   try {
     saving.value = true
-    await apiClient.put(`/tariffs/${currentTariff.value.id}`, editForm.value)
-    ElMessage.success('Тариф обновлен')
+
+    // Формируем объект features из чекбоксов
+    const features = {}
+    editFeaturesList.value.forEach(feature => {
+      features[feature] = true
+    })
+
+    const data = {
+      ...editForm.value,
+      features
+    }
+
+    await apiClient.put(`/tariffs/${currentTariff.value.id}`, data)
+    notifications.success('Успешно', 'Тариф обновлен')
     showEditDialog.value = false
+    editFeaturesList.value = []
     await loadTariffs()
   } catch (error) {
     console.error('Ошибка обновления тарифа:', error)
-    ElMessage.error('Не удалось обновить тариф')
+    notifications.error('Ошибка обновления', 'Не удалось обновить тариф')
   } finally {
     saving.value = false
   }
@@ -313,18 +356,18 @@ const deleteTariff = async (tariff) => {
       }
     )
     await apiClient.delete(`/tariffs/${tariff.id}`)
-    ElMessage.success('Тариф удален')
+    notifications.success('Успешно', 'Тариф удален')
     await loadTariffs()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления тарифа:', error)
-      ElMessage.error('Не удалось удалить тариф')
+      notifications.error('Ошибка удаления', 'Не удалось удалить тариф')
     }
   }
 }
 
 const selectTariff = (tariff) => {
-  ElMessage.info(`Выбран тариф: ${tariff.name}. Функционал подключения в разработке.`)
+  notifications.info('Информация', `Выбран тариф: ${tariff.name}. Функционал подключения в разработке.`)
 }
 
 onMounted(() => {
@@ -338,9 +381,22 @@ onActivated(() => {
 
 <style scoped>
 .tariffs-view {
-  padding: 16px;
-  max-width: 1400px;
+  padding: 12px;
+  max-width: 1200px;
   margin: 0 auto;
+}
+
+.compact-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.compact-card :deep(.el-card__header) {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.compact-card :deep(.el-card__body) {
+  padding: 12px;
 }
 
 .card-header {
@@ -351,85 +407,164 @@ onActivated(() => {
   font-weight: 600;
 }
 
-.tariff-card {
-  height: 100%;
-  transition: all 0.3s;
-  border: 2px solid transparent;
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.tariff-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 16px rgba(45, 90, 61, 0.5);
-  border-color: var(--el-color-primary);
+.loading-container, .empty-container {
+  padding: 24px 0;
 }
 
-.tariff-inactive {
-  opacity: 0.7;
+.tariffs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tariff-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 6px;
+  transition: background-color 0.15s;
+}
+
+.tariff-row:hover {
+  background: var(--el-fill-color-light);
+}
+
+.tariff-row.inactive {
+  opacity: 0.6;
+}
+
+.tariff-index {
+  min-width: 32px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  flex-shrink: 0;
+}
+
+.tariff-status {
+  flex-shrink: 0;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--el-color-info);
+}
+
+.status-indicator.active {
+  background: var(--el-color-success);
+  box-shadow: 0 0 6px var(--el-color-success);
+}
+
+.tariff-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .tariff-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.tariff-header h3 {
-  margin: 0;
+.tariff-name {
+  font-weight: 600;
+  font-size: 14px;
   color: var(--el-text-color-primary);
-  font-size: 20px;
 }
 
 .tariff-description {
+  font-size: 12px;
   color: var(--el-text-color-secondary);
-  min-height: 48px;
-}
-
-.tariff-price {
-  text-align: center;
-  padding: 20px 0;
-}
-
-.price-value {
-  font-size: 36px;
-  font-weight: 700;
-  color: var(--el-color-primary);
-}
-
-.price-period {
-  font-size: 14px;
-  color: var(--el-text-color-secondary);
+  line-height: 1.4;
 }
 
 .tariff-features {
-  margin: 15px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  margin-top: 2px;
 }
 
 .feature-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 0;
+  gap: 4px;
   color: var(--el-text-color-regular);
+}
+
+.feature-item .el-icon {
+  font-size: 14px;
+}
+
+.tariff-price {
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 100px;
+}
+
+.price-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--el-color-primary);
+}
+
+.price-period {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
 }
 
 .tariff-actions {
   display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-.tariff-actions .el-button {
-  flex: 1;
-}
-
-.tariff-actions .el-dropdown .el-button {
-  flex: initial;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
   .tariffs-view {
-    padding: 12px;
+    padding: 8px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .tariff-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tariff-main {
+    flex: 1 1 calc(100% - 60px);
+  }
+
+  .tariff-price {
+    order: 10;
+    flex: 0 0 auto;
+  }
+
+  .tariff-actions {
+    order: 11;
   }
 }
 </style>

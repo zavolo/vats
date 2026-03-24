@@ -73,7 +73,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
-import { ElMessage } from 'element-plus'
+import { useNotifications } from '@/composables/useNotifications'
+
+const notifications = useNotifications()
 
 const authStore = useAuthStore()
 const user = computed(() => authStore.user)
@@ -97,11 +99,11 @@ const updateProfile = async () => {
     saving.value = true
     await apiClient.put(`/users/${user.value.id}`, editForm.value)
     await authStore.fetchUser(true)
-    ElMessage.success('Профиль обновлен')
+    notifications.success('Успешно', 'Профиль обновлен')
     loadProfile()
   } catch (error) {
     console.error('Ошибка обновления профиля:', error)
-    ElMessage.error('Не удалось обновить профиль')
+    notifications.error('Ошибка обновления', 'Не удалось обновить профиль')
   } finally {
     saving.value = false
   }
@@ -109,24 +111,24 @@ const updateProfile = async () => {
 
 const changePassword = async () => {
   if (!passwordForm.value.currentPassword || !passwordForm.value.newPassword || !passwordForm.value.confirmPassword) {
-    ElMessage.warning('Заполните все поля')
+    notifications.warning('Предупреждение', 'Заполните все поля')
     return
   }
   if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-    ElMessage.warning('Пароли не совпадают')
+    notifications.warning('Предупреждение', 'Пароли не совпадают')
     return
   }
   if (passwordForm.value.newPassword.length < 5) {
-    ElMessage.warning('Пароль должен содержать минимум 5 символов')
+    notifications.warning('Предупреждение', 'Пароль должен содержать минимум 5 символов')
     return
   }
   try {
     changingPassword.value = true
-    ElMessage.info('Функционал изменения пароля в разработке')
+    notifications.info('Информация', 'Функционал изменения пароля в разработке')
     passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
   } catch (error) {
     console.error('Ошибка изменения пароля:', error)
-    ElMessage.error('Не удалось изменить пароль')
+    notifications.error('Ошибка', 'Не удалось изменить пароль')
   } finally {
     changingPassword.value = false
   }

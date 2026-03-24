@@ -24,14 +24,14 @@ const router = createRouter({
         {
           path: 'calls',
           name: 'calls',
-          component: () => import('@/views/CallsView.vue'),
-          meta: { permission: { resource: 'calls', action: 'read' } }
+          component: () => import('@/views/CallsView.vue')
+          // доступ всем, фильтрация на бекенде
         },
         {
           path: 'asterisk-servers',
           name: 'asterisk-servers',
           component: () => import('@/views/AsteriskServersView.vue'),
-          meta: { permission: { resource: 'companies', action: 'read' } }
+          meta: { permission: { resource: 'asterisk-servers', action: 'read' } }
         },
         {
           path: 'sip-endpoints',
@@ -46,10 +46,26 @@ const router = createRouter({
           meta: { permission: { resource: 'ivr', action: 'read' } }
         },
         {
+          path: 'melodies',
+          name: 'melodies',
+          component: () => import('@/views/MelodiesView.vue')
+        },
+        {
           path: 'dongles',
           name: 'dongles',
           component: () => import('@/views/DonglesView.vue'),
           meta: { permission: { resource: 'dongles', action: 'read' } }
+        },
+        {
+          path: 'sms',
+          name: 'sms',
+          component: () => import('@/views/SMSView.vue')
+        },
+        {
+          path: 'broadcast',
+          name: 'broadcast',
+          component: () => import('@/views/BroadcastView.vue'),
+          meta: { permission: { resource: 'broadcast', action: 'read' } }
         },
         {
           path: 'users',

@@ -137,8 +137,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { useNotifications } from '@/composables/useNotifications'
 import { useAuthStore } from '@/stores/auth'
+
+const notifications = useNotifications()
 
 const authStore = useAuthStore()
 const user = computed(() => authStore.user)
@@ -185,7 +187,7 @@ const loginHistory = ref([
 const saveSettings = () => {
   saving.value = true
   setTimeout(() => {
-    ElMessage.success('Настройки сохранены')
+    notifications.success('Успешно', 'Настройки сохранены')
     saving.value = false
   }, 500)
 }
@@ -193,7 +195,7 @@ const saveSettings = () => {
 const saveCallSettings = () => {
   saving.value = true
   setTimeout(() => {
-    ElMessage.success('Настройки звонков сохранены')
+    notifications.success('Успешно', 'Настройки звонков сохранены')
     saving.value = false
   }, 500)
 }
@@ -201,7 +203,7 @@ const saveCallSettings = () => {
 const saveNotificationSettings = () => {
   saving.value = true
   setTimeout(() => {
-    ElMessage.success('Настройки уведомлений сохранены')
+    notifications.success('Успешно', 'Настройки уведомлений сохранены')
     saving.value = false
   }, 500)
 }
@@ -209,7 +211,7 @@ const saveNotificationSettings = () => {
 const saveSecuritySettings = () => {
   saving.value = true
   setTimeout(() => {
-    ElMessage.success('Настройки безопасности сохранены')
+    notifications.success('Успешно', 'Настройки безопасности сохранены')
     saving.value = false
   }, 500)
 }
@@ -217,7 +219,7 @@ const saveSecuritySettings = () => {
 const saveApiSettings = () => {
   saving.value = true
   setTimeout(() => {
-    ElMessage.success('API настройки сохранены')
+    notifications.success('Успешно', 'API настройки сохранены')
     saving.value = false
   }, 500)
 }
@@ -226,7 +228,7 @@ const regenerateToken = () => {
   regenerating.value = true
   setTimeout(() => {
     apiToken.value = 'sk_live_' + Math.random().toString(36).substring(2, 40)
-    ElMessage.success('Токен обновлён')
+    notifications.success('Успешно', 'Токен обновлён')
     regenerating.value = false
   }, 500)
 }

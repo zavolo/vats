@@ -1,121 +1,110 @@
 <template>
   <div class="dongles-view">
-    <el-card>
+    <el-card class="compact-card">
       <template #header>
         <div class="card-header">
           <span>Управление донглами</span>
-          <el-space>
-            <el-button type="info" @click="syncDongles" size="small" :loading="syncing">
-              <el-icon><RefreshRight /></el-icon>
-              Синхронизация
+          <div class="header-actions">
+            <el-select v-model="filters.isOnline" placeholder="Связь" clearable @change="loadDongles" size="small" style="width: 110px">
+              <el-option label="Все" :value="null" />
+              <el-option label="Онлайн" :value="true" />
+              <el-option label="Оффлайн" :value="false" />
+            </el-select>
+            <el-button @click="syncDongles" size="small" :loading="syncing" :icon="RefreshRight">
+              Синхр.
             </el-button>
-            <el-button type="primary" @click="loadDongles" size="small" :loading="loading">
-              <el-icon><Refresh /></el-icon>
-              Обновить
+            <el-button type="primary" @click="loadDongles" size="small" :loading="loading" :icon="Refresh" />
+            <el-button type="success" @click="showCreateDialog = true" size="small" :icon="Plus" v-if="permissionsStore.hasPermission('dongles', 'create')">
+              Добавить
             </el-button>
-            <el-button type="success" @click="showCreateDialog = true" size="small" v-if="permissionsStore.hasPermission('dongles', 'create')">
-              <el-icon><Plus /></el-icon>
-              Добавить донгл
-            </el-button>
-          </el-space>
+          </div>
         </div>
       </template>
 
-      <el-form :inline="true" class="filter-form" size="small">
-        <el-form-item label="Активность">
-          <el-select v-model="filters.isActive" placeholder="Все" clearable @change="loadDongles" style="width: 140px">
-            <el-option label="Все" :value="null" />
-            <el-option label="Активные" :value="true" />
-            <el-option label="Неактивные" :value="false" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="Связь">
-          <el-select v-model="filters.isOnline" placeholder="Все" clearable @change="loadDongles" style="width: 140px">
-            <el-option label="Все" :value="null" />
-            <el-option label="Онлайн" :value="true" />
-            <el-option label="Оффлайн" :value="false" />
-          </el-select>
-        </el-form-item>
-      </el-form>
+      <div v-if="loading" class="loading-container">
+        <el-skeleton :rows="5" animated />
+      </div>
 
-      <el-alert v-if="dongles.length === 0 && !loading" type="info" :closable="false" style="margin-bottom: 16px">
-        <template #default>
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span>Донглы не найдены. Попробуйте синхронизировать с Asterisk.</span>
-            <el-button type="primary" size="small" @click="syncDongles" :loading="syncing">
-              Синхронизировать
-            </el-button>
+      <div v-else-if="dongles.length === 0" class="empty-container">
+        <el-empty description="Донглы не найдены" :image-size="80">
+          <el-button type="primary" size="small" @click="syncDongles" :loading="syncing">
+            Синхронизировать с Asterisk
+          </el-button>
+        </el-empty>
+      </div>
+
+      <div v-else class="dongles-list">
+        <div v-for="dongle in dongles" :key="dongle.id" class="dongle-row">
+          <div class="dongle-status">
+            <div class="status-indicator" :class="{ online: dongle.is_online, offline: !dongle.is_online }"></div>
           </div>
-        </template>
-      </el-alert>
 
-      <el-table :data="dongles" v-loading="loading" style="width: 100%" stripe size="small" :key="tableKey">
-        <el-table-column prop="name" label="Имя" width="130" />
-        <el-table-column prop="provider" label="Провайдер" width="110" />
-        <el-table-column prop="phone_number" label="Номер" width="130" />
-        <el-table-column label="Активность" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-              {{ row.is_active ? 'Активен' : 'Неактивен' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Связь" width="90">
-          <template #default="{ row }">
-            <el-tag :type="row.is_online ? 'success' : 'info'" size="small">
-              {{ row.is_online ? 'Online' : 'Offline' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="imei" label="IMEI" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="imsi" label="IMSI" min-width="140" show-overflow-tooltip />
-        <el-table-column label="Действия" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-space :size="4">
-              <el-button size="small" @click="openEditDialog(row)" v-if="permissionsStore.hasPermission('dongles', 'update')">
-                Изменить
-              </el-button>
-              <el-dropdown @command="(cmd) => handleCommand(cmd, row)" trigger="click">
-                <el-button size="small">
-                  <el-icon><MoreFilled /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="sms" v-if="permissionsStore.hasPermission('dongles', 'send_sms')">
-                      SMS
-                    </el-dropdown-item>
-                    <el-dropdown-item command="ussd" v-if="permissionsStore.hasPermission('dongles', 'send_ussd')">
-                      USSD
-                    </el-dropdown-item>
-                    <el-dropdown-item command="reload" v-if="permissionsStore.hasPermission('dongles', 'reload')">
-                      Перезагрузить
-                    </el-dropdown-item>
-                    <el-dropdown-item command="delete" divided v-if="permissionsStore.hasPermission('dongles', 'delete')">
-                      Удалить
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </el-space>
-          </template>
-        </el-table-column>
-      </el-table>
+          <div class="dongle-main">
+            <div class="dongle-name">
+              <span class="name">{{ dongle.name }}</span>
+              <el-tag v-if="!dongle.is_active" type="danger" size="small">Неактивен</el-tag>
+            </div>
+            <div class="dongle-details">
+              <span class="phone" v-if="dongle.phone_number">{{ dongle.phone_number }}</span>
+              <span class="provider" v-if="dongle.provider">{{ dongle.provider }}</span>
+              <span class="company" v-if="isRoot && getCompanyName(dongle.company_id) !== '-'">{{ getCompanyName(dongle.company_id) }}</span>
+            </div>
+          </div>
+
+          <div class="dongle-tech">
+            <div class="tech-item" v-if="dongle.imei">
+              <span class="tech-label">IMEI</span>
+              <span class="tech-value">{{ dongle.imei }}</span>
+            </div>
+            <div class="tech-item" v-if="dongle.imsi">
+              <span class="tech-label">IMSI</span>
+              <span class="tech-value">{{ dongle.imsi }}</span>
+            </div>
+          </div>
+
+          <div class="dongle-actions">
+            <el-button size="small" @click="openEditDialog(dongle)" v-if="permissionsStore.hasPermission('dongles', 'update')">
+              Изменить
+            </el-button>
+            <el-dropdown @command="(cmd) => handleCommand(cmd, dongle)" trigger="click">
+              <el-button size="small" :icon="MoreFilled" />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="sms" v-if="permissionsStore.hasPermission('dongles', 'send_sms')">
+                    <el-icon><Message /></el-icon> SMS
+                  </el-dropdown-item>
+                  <el-dropdown-item command="ussd" v-if="permissionsStore.hasPermission('dongles', 'send_ussd')">
+                    <el-icon><Position /></el-icon> USSD
+                  </el-dropdown-item>
+                  <el-dropdown-item command="reload" v-if="permissionsStore.hasPermission('dongles', 'reload')">
+                    <el-icon><RefreshRight /></el-icon> Перезагрузить
+                  </el-dropdown-item>
+                  <el-dropdown-item command="delete" divided v-if="permissionsStore.hasPermission('dongles', 'delete')">
+                    <el-icon><Delete /></el-icon> Удалить
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </div>
+      </div>
 
       <el-pagination
+        v-if="dongles.length > 0"
         v-model:current-page="pagination.page"
         v-model:page-size="pagination.limit"
         :total="pagination.total"
-        :page-sizes="[10, 20, 50, 100]"
+        :page-sizes="[20, 50, 100]"
         layout="total, sizes, prev, pager, next"
         @size-change="loadDongles"
         @current-change="loadDongles"
-        style="margin-top: 16px; justify-content: center"
+        class="pagination"
         small
       />
     </el-card>
 
-    <el-dialog v-model="showCreateDialog" title="Добавить донгл" width="550px">
-      <el-form :model="createForm" label-width="140px" size="default">
+    <el-dialog v-model="showCreateDialog" title="Добавить донгл" width="500px">
+      <el-form :model="createForm" label-width="130px" size="default">
         <el-form-item label="Имя" required>
           <el-input v-model="createForm.name" placeholder="dongle0" />
         </el-form-item>
@@ -143,6 +132,11 @@
         <el-form-item label="Группа">
           <el-input-number v-model="createForm.group" :min="1" :max="99" />
         </el-form-item>
+        <el-form-item label="Компания" v-if="isRoot">
+          <el-select v-model="createForm.company_id" placeholder="Выберите компанию" clearable style="width: 100%">
+            <el-option v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showCreateDialog = false">Отмена</el-button>
@@ -150,8 +144,8 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showEditDialog" title="Редактировать донгл" width="550px">
-      <el-form :model="editForm" label-width="140px" size="default">
+    <el-dialog v-model="showEditDialog" title="Редактировать донгл" width="500px">
+      <el-form :model="editForm" label-width="130px" size="default">
         <el-form-item label="Провайдер">
           <el-input v-model="editForm.provider" />
         </el-form-item>
@@ -167,6 +161,11 @@
         <el-form-item label="Активность">
           <el-switch v-model="editForm.is_active" />
         </el-form-item>
+        <el-form-item label="Компания" v-if="isRoot">
+          <el-select v-model="editForm.company_id" placeholder="Выберите компанию" clearable style="width: 100%">
+            <el-option v-for="company in companies" :key="company.id" :label="company.name" :value="company.id" />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showEditDialog = false">Отмена</el-button>
@@ -174,7 +173,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showSmsDialog" title="Отправить SMS" width="500px">
+    <el-dialog v-model="showSmsDialog" title="Отправить SMS" width="450px">
       <el-form :model="smsForm" label-width="100px" size="default">
         <el-form-item label="Донгл">
           <el-input :value="currentDongle?.name" disabled />
@@ -192,7 +191,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showUssdDialog" title="Отправить USSD" width="400px">
+    <el-dialog v-model="showUssdDialog" title="Отправить USSD" width="380px">
       <el-form :model="ussdForm" label-width="100px" size="default">
         <el-form-item label="Донгл">
           <el-input :value="currentDongle?.name" disabled />
@@ -210,13 +209,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onActivated } from 'vue'
-import { Refresh, Plus, MoreFilled, RefreshRight } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, computed, onMounted, onActivated } from 'vue'
+import { Refresh, Plus, MoreFilled, RefreshRight, Message, Position, Delete } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { useNotifications } from '@/composables/useNotifications'
 import apiClient from '@/api/client'
 import { usePermissionsStore } from '@/stores/permissions'
 
+const notifications = useNotifications()
 const permissionsStore = usePermissionsStore()
+const isRoot = computed(() => permissionsStore.isRoot)
+const companies = ref([])
 
 const dongles = ref([])
 const loading = ref(false)
@@ -225,59 +228,72 @@ const sending = ref(false)
 const syncing = ref(false)
 const filters = ref({ isActive: null, isOnline: null })
 const pagination = ref({ page: 1, limit: 20, total: 0 })
-const tableKey = ref(0)
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const showSmsDialog = ref(false)
 const showUssdDialog = ref(false)
 
-const createForm = ref({ 
-  name: '', 
-  provider: '', 
-  imei: '', 
-  imsi: '', 
+const createForm = ref({
+  name: '',
+  provider: '',
+  imei: '',
+  imsi: '',
   phone_number: '',
   audio_device: '',
   data_device: '',
   context: '',
-  group: 1
+  group: 1,
+  company_id: null
 })
-const editForm = ref({ 
-  provider: '', 
-  phone_number: '', 
+const editForm = ref({
+  provider: '',
+  phone_number: '',
   audio_device: '',
   data_device: '',
-  is_active: true 
+  is_active: true,
+  company_id: null
 })
 const smsForm = ref({ number: '', message: '' })
 const ussdForm = ref({ ussd: '' })
 const currentDongle = ref(null)
 
+const loadCompanies = async () => {
+  if (!isRoot.value) return
+  try {
+    const response = await apiClient.get('/companies', { params: { _t: Date.now() } })
+    companies.value = response.data
+  } catch (error) {
+    console.error('Ошибка загрузки компаний:', error)
+  }
+}
+
+const getCompanyName = (companyId) => {
+  if (!companyId) return '-'
+  const company = companies.value.find(c => c.id === companyId)
+  return company ? company.name : '-'
+}
+
 const loadDongles = async () => {
   try {
     loading.value = true
-    const params = { 
-      skip: (pagination.value.page - 1) * pagination.value.limit, 
+    const params = {
+      skip: (pagination.value.page - 1) * pagination.value.limit,
       limit: pagination.value.limit,
       _t: Date.now()
     }
     if (filters.value.isActive !== null) params.is_active = filters.value.isActive
     if (filters.value.isOnline !== null) params.is_online = filters.value.isOnline
-    
-    const response = await apiClient.get('/dongles', { 
+
+    const response = await apiClient.get('/dongles', {
       params,
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
     })
     dongles.value = response.data
     pagination.value.total = response.data.length
-    tableKey.value++
   } catch (error) {
     console.error('Ошибка загрузки донглов:', error)
-    ElMessage.error('Не удалось загрузить донглы')
+    notifications.error('Ошибка загрузки', 'Не удалось загрузить список донглов')
   } finally {
     loading.value = false
   }
@@ -288,16 +304,13 @@ const syncDongles = async () => {
     syncing.value = true
     const response = await apiClient.get('/dongles/sync', {
       params: { _t: Date.now() },
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
     })
-    ElMessage.success(response.data.message || `Синхронизировано донглов: ${response.data.count}`)
+    notifications.success('Синхронизация завершена', response.data.message || `Синхронизировано: ${response.data.count}`)
     await loadDongles()
   } catch (error) {
     console.error('Ошибка синхронизации донглов:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось синхронизировать донглы с Asterisk')
+    notifications.error('Ошибка синхронизации', error.response?.data?.detail || 'Не удалось синхронизировать донглы')
   } finally {
     syncing.value = false
   }
@@ -305,29 +318,19 @@ const syncDongles = async () => {
 
 const createDongle = async () => {
   if (!createForm.value.name) {
-    ElMessage.warning('Укажите имя донгла')
+    notifications.warning('Не все поля заполнены', 'Укажите имя донгла')
     return
   }
   try {
     saving.value = true
     await apiClient.post('/dongles', createForm.value)
-    ElMessage.success('Донгл создан и настроен в Asterisk')
+    notifications.success('Донгл создан', 'Новый донгл успешно добавлен')
     showCreateDialog.value = false
-    createForm.value = { 
-      name: '', 
-      provider: '', 
-      imei: '', 
-      imsi: '', 
-      phone_number: '',
-      audio_device: '',
-      data_device: '',
-      context: '',
-      group: 1
-    }
+    createForm.value = { name: '', provider: '', imei: '', imsi: '', phone_number: '', audio_device: '', data_device: '', context: '', group: 1, company_id: null }
     await loadDongles()
   } catch (error) {
     console.error('Ошибка создания донгла:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось создать донгл')
+    notifications.error('Ошибка создания', error.response?.data?.detail || 'Не удалось создать донгл')
   } finally {
     saving.value = false
   }
@@ -335,12 +338,13 @@ const createDongle = async () => {
 
 const openEditDialog = (dongle) => {
   currentDongle.value = dongle
-  editForm.value = { 
-    provider: dongle.provider || '', 
-    phone_number: dongle.phone_number || '', 
+  editForm.value = {
+    provider: dongle.provider || '',
+    phone_number: dongle.phone_number || '',
     audio_device: dongle.audio_device || '',
     data_device: dongle.data_device || '',
-    is_active: dongle.is_active 
+    is_active: dongle.is_active,
+    company_id: dongle.company_id || null
   }
   showEditDialog.value = true
 }
@@ -349,12 +353,12 @@ const updateDongle = async () => {
   try {
     saving.value = true
     await apiClient.put(`/dongles/${currentDongle.value.id}`, editForm.value)
-    ElMessage.success('Донгл обновлен, изменения применены в Asterisk')
+    notifications.success('Донгл обновлен', 'Данные донгла успешно сохранены')
     showEditDialog.value = false
     await loadDongles()
   } catch (error) {
     console.error('Ошибка обновления донгла:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось обновить донгл')
+    notifications.error('Ошибка обновления', error.response?.data?.detail || 'Не удалось обновить донгл')
   } finally {
     saving.value = false
   }
@@ -382,17 +386,17 @@ const handleCommand = async (command, dongle) => {
 
 const sendSms = async () => {
   if (!smsForm.value.number || !smsForm.value.message) {
-    ElMessage.warning('Заполните все поля')
+    notifications.warning('Не все поля заполнены', 'Укажите получателя и текст сообщения')
     return
   }
   try {
     sending.value = true
     await apiClient.post(`/dongles/${currentDongle.value.id}/sms`, smsForm.value)
-    ElMessage.success('SMS отправлено')
+    notifications.success('SMS отправлено', 'Сообщение успешно отправлено')
     showSmsDialog.value = false
   } catch (error) {
     console.error('Ошибка отправки SMS:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось отправить SMS')
+    notifications.error('Ошибка отправки', error.response?.data?.detail || 'Не удалось отправить SMS')
   } finally {
     sending.value = false
   }
@@ -400,17 +404,17 @@ const sendSms = async () => {
 
 const sendUssd = async () => {
   if (!ussdForm.value.ussd) {
-    ElMessage.warning('Укажите USSD код')
+    notifications.warning('Не все поля заполнены', 'Укажите USSD код')
     return
   }
   try {
     sending.value = true
     await apiClient.post(`/dongles/${currentDongle.value.id}/ussd`, ussdForm.value)
-    ElMessage.success('USSD запрос отправлен')
+    notifications.success('USSD запрос отправлен', 'Запрос успешно отправлен')
     showUssdDialog.value = false
   } catch (error) {
     console.error('Ошибка отправки USSD:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось отправить USSD')
+    notifications.error('Ошибка отправки', error.response?.data?.detail || 'Не удалось отправить USSD запрос')
   } finally {
     sending.value = false
   }
@@ -419,50 +423,61 @@ const sendUssd = async () => {
 const reloadDongle = async (dongle) => {
   try {
     await apiClient.post(`/dongles/${dongle.id}/reload`)
-    ElMessage.success('Донгл перезагружен')
+    notifications.success('Донгл перезагружен', 'Перезагрузка успешно выполнена')
     setTimeout(() => loadDongles(), 2000)
   } catch (error) {
     console.error('Ошибка перезагрузки донгла:', error)
-    ElMessage.error(error.response?.data?.detail || 'Не удалось перезагрузить донгл')
+    notifications.error('Ошибка перезагрузки', error.response?.data?.detail || 'Не удалось перезагрузить донгл')
   }
 }
 
 const deleteDongle = async (dongle) => {
   try {
-    await ElMessageBox.confirm(
-      `Вы уверены, что хотите удалить донгл "${dongle.name}"? Это также удалит его конфигурацию из Asterisk.`, 
-      'Подтверждение', 
-      {
-        confirmButtonText: 'Удалить',
-        cancelButtonText: 'Отмена',
-        type: 'warning'
-      }
-    )
+    await ElMessageBox.confirm(`Удалить донгл "${dongle.name}"?`, 'Подтверждение', {
+      confirmButtonText: 'Удалить',
+      cancelButtonText: 'Отмена',
+      type: 'warning'
+    })
     await apiClient.delete(`/dongles/${dongle.id}`)
-    ElMessage.success('Донгл удален из БД и Asterisk')
+    notifications.success('Донгл удален', 'Донгл успешно удалён из системы')
     await loadDongles()
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Ошибка удаления донгла:', error)
-      ElMessage.error(error.response?.data?.detail || 'Не удалось удалить донгл')
+      notifications.error('Ошибка удаления', error.response?.data?.detail || 'Не удалось удалить донгл')
     }
   }
 }
 
 onMounted(() => {
   loadDongles()
+  loadCompanies()
 })
 
 onActivated(() => {
   loadDongles()
+  loadCompanies()
 })
 </script>
 
 <style scoped>
 .dongles-view {
-  padding: 16px;
-  max-width: 1400px;
+  padding: 12px;
+  max-width: 1200px;
   margin: 0 auto;
+}
+
+.compact-card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.compact-card :deep(.el-card__header) {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.compact-card :deep(.el-card__body) {
+  padding: 12px;
 }
 
 .card-header {
@@ -473,13 +488,165 @@ onActivated(() => {
   font-weight: 600;
 }
 
-.filter-form {
-  margin-bottom: 16px;
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.loading-container, .empty-container {
+  padding: 24px 0;
+}
+
+.dongles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dongle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: background-color 0.15s;
+}
+
+.dongle-row:hover {
+  background: var(--el-fill-color-light);
+}
+
+.dongle-status {
+  flex-shrink: 0;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--el-color-info-light-5);
+}
+
+.status-indicator.online {
+  background: var(--el-color-success);
+  box-shadow: 0 0 6px var(--el-color-success);
+}
+
+.status-indicator.offline {
+  background: var(--el-color-info-light-5);
+}
+
+.dongle-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dongle-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dongle-name .name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+}
+
+.dongle-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.dongle-details .phone {
+  color: var(--el-color-primary);
+  font-weight: 500;
+}
+
+.dongle-details .provider {
+  color: var(--el-text-color-secondary);
+}
+
+.dongle-details .company {
+  color: var(--el-text-color-secondary);
+  font-style: italic;
+}
+
+.dongle-tech {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.tech-item {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.tech-label {
+  color: var(--el-text-color-secondary);
+  min-width: 35px;
+}
+
+.tech-value {
+  color: var(--el-text-color-regular);
+  font-family: monospace;
+}
+
+.dongle-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pagination {
+  margin-top: 16px;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
   .dongles-view {
-    padding: 12px;
+    padding: 8px;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .dongle-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .dongle-main {
+    flex: 1 1 calc(100% - 30px);
+  }
+
+  .dongle-tech {
+    flex: 1 1 100%;
+    flex-direction: row;
+    gap: 12px;
+    min-width: auto;
+  }
+
+  .dongle-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
   }
 }
 </style>

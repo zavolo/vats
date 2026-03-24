@@ -9,12 +9,24 @@ const apiClient = axios.create({
   }
 })
 
+let authStore = null
+
+export const setAuthStore = (store) => {
+  authStore = store
+}
+
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // Disable caching for all requests
+    config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    config.headers['Pragma'] = 'no-cache'
+    config.headers['Expires'] = '0'
+    // Add timestamp to prevent browser caching
+    config.params = { ...config.params, _t: Date.now() }
     return config
   },
   (error) => {
@@ -26,9 +38,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      router.push('/login')
+      if (authStore) {
+        authStore.logout()
+      } else {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        localStorage.removeItem('originalUser')
+        router.push('/login')
+      }
     }
     return Promise.reject(error)
   }
