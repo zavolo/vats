@@ -236,6 +236,23 @@
                 />
               </el-select>
             </el-form-item>
+
+            <el-form-item label="Мелодия недоступности">
+              <el-select
+                v-model="editForm.settings.busy_melody"
+                placeholder="Стандартная (vm-nobodyavail)"
+                style="width: 100%"
+                clearable
+                :loading="loadingMelodies"
+              >
+                <el-option
+                  v-for="melody in melodies"
+                  :key="'busy_' + melody.filename"
+                  :label="melody.name"
+                  :value="melody.filename"
+                />
+              </el-select>
+            </el-form-item>
           </el-form>
         </el-tab-pane>
       </el-tabs>
@@ -293,7 +310,8 @@ const defaultSettings = {
   ivr_id: null,
   queue_id: null,
   record_calls: false,
-  custom_melody: ''
+  custom_melody: '',
+  busy_melody: ''
 }
 
 const editForm = ref({
@@ -430,7 +448,8 @@ const openEditDialog = async (company) => {
       ivr_id: settings.ivr_id || null,
       queue_id: settings.queue_id || null,
       record_calls: settings.record_calls || false,
-      custom_melody: settings.custom_melody || ''
+      custom_melody: settings.custom_melody || '',
+      busy_melody: settings.busy_melody || ''
     }
   }
 
