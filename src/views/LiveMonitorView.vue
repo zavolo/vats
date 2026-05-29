@@ -20,11 +20,21 @@
         highlight-current-row
         @row-click="selectChannel"
       >
-        <el-table-column prop="caller_num" label="Откуда" min-width="130"/>
-        <el-table-column prop="connected_num" label="Куда" min-width="130"/>
-        <el-table-column prop="state" label="Состояние" min-width="100"/>
-        <el-table-column prop="duration" label="Длительность" min-width="100"/>
-        <el-table-column prop="channel" label="Канал" min-width="220">
+        <el-table-column label="Откуда" min-width="140">
+          <template #default="{ row }">{{ formatParty(row.caller_num, row.caller_name) }}</template>
+        </el-table-column>
+        <el-table-column label="Куда" min-width="140">
+          <template #default="{ row }">{{ formatParty(row.connected_num, null) || extractEndpoint(row.channel) }}</template>
+        </el-table-column>
+        <el-table-column label="Состояние" min-width="120">
+          <template #default="{ row }">
+            <el-tag :type="stateTagType(row.state)" size="small">{{ translateState(row.state) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Длительность" min-width="100">
+          <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
+        </el-table-column>
+        <el-table-column label="Канал" min-width="240">
           <template #default="{ row }">
             <code class="channel-name">{{ row.channel }}</code>
           </template>
@@ -154,6 +164,50 @@ const statusType = computed(() => {
 })
 
 const stripExt = (name) => name.replace(/\.[^.]+$/, '')
+
+// AMI ChannelStateDesc → русское название
+// https://docs.asterisk.org/Asterisk_19_Documentation/API_Documentation/AMI_Events/CoreShowChannel/
+const STATE_RU = {
+  Down: 'Завершён',
+  Reserved: 'Зарезервирован',
+  OffHook: 'Снята трубка',
+  Dialing: 'Набор',
+  Ring: 'Звонит',
+  Ringing: 'Звонит',
+  Up: 'В разговоре',
+  Busy: 'Занят',
+  'Dialing Offhook': 'Дозвон',
+  'Pre-ring': 'Подготовка',
+  Unknown: 'Неизвестно',
+}
+const translateState = (s) => STATE_RU[s] || (s ? s : '—')
+const stateTagType = (s) => {
+  if (s === 'Up') return 'success'
+  if (s === 'Ring' || s === 'Ringing' || s === 'Dialing' || s === 'Dialing Offhook') return 'warning'
+  if (s === 'Down' || s === 'Busy') return 'info'
+  return ''
+}
+
+const isUnknown = (v) => !v || v === '<unknown>' || v === 'unknown'
+
+const formatParty = (num, name) => {
+  const n = isUnknown(num) ? '' : num
+  const nm = isUnknown(name) ? '' : name
+  if (n && nm) return `${nm} (${n})`
+  return n || nm || ''
+}
+
+// Из имени канала достать endpoint (Dongle/megafon-0100000000 → megafon)
+const extractEndpoint = (channel) => {
+  if (!channel) return ''
+  const m = channel.match(/^[^/]+\/([^-]+)/)
+  return m ? m[1] : channel
+}
+
+const formatDuration = (d) => {
+  if (!d || d === '00:00:00') return '—'
+  return d
+}
 
 const loadChannels = async () => {
   loadingChannels.value = true
