@@ -189,13 +189,42 @@ const loadAudioBlob = async (callId) => {
     audioBlobUrls.value[callId] = blobUrl
     return blobUrl
   } catch (error) {
+    // 404: бэкенд обнаружил пустую запись (Asterisk не успел записать аудио),
+    // удалил файл и обнулил recording_file в БД. Прячем плеер в UI.
+    if (error.response?.status === 404) {
+      const call = calls.value.find(c => c.id === callId)
+      if (call) {
+        call.has_recording = false
+        call.recording_file = null
+      }
+      const detail = await extractErrorDetail(error)
+      notifications.info('Запись недоступна', detail || 'Аудио для этого звонка не сохранилось')
+      return null
+    }
     console.error('Ошибка загрузки записи:', error)
-    const detail = error.response?.data?.detail || 'Не удалось загрузить запись'
-    notifications.error('Ошибка загрузки записи', detail)
+    const detail = await extractErrorDetail(error)
+    notifications.error('Ошибка загрузки записи', detail || 'Не удалось загрузить запись')
     return null
   } finally {
     loadingAudio.value[callId] = false
   }
+}
+
+// detail в ошибке прилетает blob'ом (т.к. responseType: 'blob'), парсим вручную
+const extractErrorDetail = async (error) => {
+  const data = error.response?.data
+  if (!data) return null
+  if (typeof data === 'string') return data
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text()
+      const parsed = JSON.parse(text)
+      return parsed.detail || null
+    } catch {
+      return null
+    }
+  }
+  return data.detail || null
 }
 
 const togglePlay = async (callId) => {
