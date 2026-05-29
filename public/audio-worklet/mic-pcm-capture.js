@@ -28,13 +28,15 @@ class MicPcmCapture extends AudioWorkletProcessor {
       this.writeOffset += take
       i += take
       if (this.writeOffset >= this.frameSize) {
-        // Float32 → Int16
-        const out = new Int16Array(this.frameSize)
+        // Float32 → Int16 big-endian (slin16 в Asterisk).
+        const ab = new ArrayBuffer(this.frameSize * 2)
+        const view = new DataView(ab)
         for (let k = 0; k < this.frameSize; k++) {
           const s = Math.max(-1, Math.min(1, this.buffer[k]))
-          out[k] = s < 0 ? s * 0x8000 : s * 0x7FFF
+          const i16 = s < 0 ? s * 0x8000 : s * 0x7FFF
+          view.setInt16(k * 2, i16 | 0, false)  // false = big-endian
         }
-        this.port.postMessage(out.buffer, [out.buffer])
+        this.port.postMessage(ab, [ab])
         this.writeOffset = 0
       }
     }

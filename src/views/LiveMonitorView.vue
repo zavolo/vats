@@ -461,9 +461,14 @@ const connectTo = async (chan) => {
       if (typeof ev.data === 'string') {
         handleControl(JSON.parse(ev.data))
       } else {
-        const i16 = new Int16Array(ev.data)
-        const f32 = new Float32Array(i16.length)
-        for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768
+        // Asterisk slin16 = signed 16-bit big-endian, читаем через DataView
+        // чтобы не получить белый шум на little-endian-системах.
+        const view = new DataView(ev.data)
+        const samples = ev.data.byteLength / 2
+        const f32 = new Float32Array(samples)
+        for (let i = 0; i < samples; i++) {
+          f32[i] = view.getInt16(i * 2, false) / 32768  // false = big-endian
+        }
         pushPcmToPlayer(f32)
       }
     }
