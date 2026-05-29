@@ -86,14 +86,6 @@
             должен прозвучать короткий сигнал.
           </div>
           <el-button @click="playTestTone" :icon="VideoPlay">Проверить колонки</el-button>
-          <div class="step-hint">
-            <span class="hint-text">Если слышен только шум вместо голоса —</span>
-            <el-radio-group v-model="endian" size="small">
-              <el-radio-button value="le">Формат A</el-radio-button>
-              <el-radio-button value="be">Формат B</el-radio-button>
-            </el-radio-group>
-            <span class="hint-text">попробуйте переключить.</span>
-          </div>
         </el-card>
 
         <!-- Я говорю собеседнику -->
