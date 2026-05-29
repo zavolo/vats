@@ -50,95 +50,126 @@
 
       <div v-else class="live-panel">
         <el-alert
-          :title="`Подключено: ${channelId}`"
+          :title="`Подключено к ${channelId}`"
           type="success"
           show-icon
           :closable="false"
-          style="margin-bottom: 8px"
-        />
+          style="margin-bottom: 12px"
+        >
+          <template #default>
+            <div style="font-size: 13px">
+              Сетевой поток: <b>{{ formatBytes(bytesReceived) }}</b>
+              · Принимаем PCM: <b>{{ audioMode === 'worklet' ? 'AudioWorklet' : 'ScriptProcessor' }}</b>
+            </div>
+          </template>
+        </el-alert>
 
-        <el-alert
-          v-if="audioCtxState !== 'running'"
-          title="Звук не активирован"
-          description="AudioContext в состоянии suspended — нажмите «Активировать звук» (политика автоплея браузера)."
-          type="warning"
-          show-icon
-          :closable="false"
-          style="margin-bottom: 8px"
-        />
+        <!-- Шаг 1: активировать звук (если ctx suspended) -->
+        <el-card v-if="audioCtxState !== 'running'" shadow="never" class="step-card warning">
+          <div class="step-head">
+            <span class="step-num">1</span>
+            <b>Активируйте звук</b>
+            <el-tag type="warning" size="small">обязательно</el-tag>
+          </div>
+          <div class="step-desc">
+            Браузер требует клик пользователя перед воспроизведением. Без него вы ничего не услышите.
+          </div>
+          <el-button type="warning" :icon="Headset" @click="resumeAudio">
+            Активировать звук
+          </el-button>
+        </el-card>
 
-        <div class="diag-row">
-          <el-tag size="small" :type="audioCtxState === 'running' ? 'success' : 'warning'">
-            AudioContext: {{ audioCtxState }}
-          </el-tag>
-          <el-tag size="small" type="info">
-            Принято: {{ formatBytes(bytesReceived) }}
-          </el-tag>
-        </div>
+        <!-- Карточка прослушки звонящего -->
+        <el-card shadow="never" class="step-card">
+          <div class="step-head">
+            <span class="step-num">2</span>
+            <b>Слушать звонящего</b>
+            <el-tag :type="audioCtxState === 'running' ? 'success' : 'info'" size="small">
+              {{ audioCtxState === 'running' ? 'идёт' : 'ждёт активации' }}
+            </el-tag>
+          </div>
+          <div class="step-desc">
+            Аудио идёт прямо в наушники. Кнопка «Проверить колонки» проиграет 1с тон 440 Гц —
+            если слышно, прослушка точно работает на стороне браузера.
+          </div>
+          <el-button @click="playTestTone" :icon="VideoPlay">Проверить колонки</el-button>
+          <div class="step-hint">
+            <el-radio-group v-model="endian" size="small">
+              <el-radio-button value="le">Little-endian</el-radio-button>
+              <el-radio-button value="be">Big-endian</el-radio-button>
+            </el-radio-group>
+            <span class="hint-text">
+              Если вместо речи слышен шум — переключите порядок байт.
+            </span>
+          </div>
+        </el-card>
 
-        <div class="actions-row">
-          <el-button @click="resumeAudio" :icon="Headset">Активировать звук</el-button>
+        <!-- Карточка говорить в микрофон -->
+        <el-card shadow="never" class="step-card">
+          <div class="step-head">
+            <span class="step-num">3</span>
+            <b>Говорить со звонящим</b>
+            <el-tag v-if="micEnabled" type="success" size="small">микрофон активен</el-tag>
+            <el-tag v-else type="info" size="small">микрофон выключен</el-tag>
+          </div>
+          <div class="step-desc">
+            Включите микрофон, и ваш голос пойдёт собеседнику в реальном времени. Нужен HTTPS.
+          </div>
           <el-button
             :type="micEnabled ? 'success' : 'primary'"
             @click="toggleMic"
             :icon="Microphone"
           >
-            {{ micEnabled ? 'Микрофон вкл' : 'Говорить (микрофон)' }}
+            {{ micEnabled ? 'Выключить микрофон' : 'Включить микрофон' }}
           </el-button>
-          <el-button @click="playTestTone">Тест-сигнал</el-button>
-          <el-button type="danger" @click="disconnect">Отключиться</el-button>
+        </el-card>
+
+        <!-- Карточка подсунуть запись -->
+        <el-card shadow="never" class="step-card">
+          <div class="step-head">
+            <span class="step-num">4</span>
+            <b>Подсунуть запись собеседнику</b>
+            <el-tag v-if="currentPlayback" type="success" size="small">играет</el-tag>
+          </div>
+          <div class="step-desc">
+            Выберите мелодию из библиотеки — собеседник услышит её, мы тоже услышим (через прослушку).
+          </div>
+          <el-select
+            v-model="selectedMelody"
+            placeholder="Выберите мелодию"
+            style="width: 100%; margin-bottom: 8px"
+            clearable
+            filterable
+            :loading="loadingMelodies"
+          >
+            <el-option
+              v-for="m in melodies"
+              :key="m.filename"
+              :label="m.name"
+              :value="`sound:custom/${stripExt(m.filename)}`"
+            />
+          </el-select>
+          <el-button
+            type="success"
+            :icon="VideoPlay"
+            :disabled="!selectedMelody || !!currentPlayback"
+            @click="playSelected"
+          >
+            Воспроизвести собеседнику
+          </el-button>
+          <el-button
+            type="warning"
+            :icon="VideoPause"
+            :disabled="!currentPlayback"
+            @click="stopPlayback"
+          >
+            Остановить
+          </el-button>
+        </el-card>
+
+        <div class="bottom-actions">
+          <el-button type="danger" plain @click="disconnect">Завершить прослушку</el-button>
         </div>
-
-        <div class="actions-row" style="margin-top: 8px">
-          <span style="font-size: 13px; align-self: center">Порядок байт PCM:</span>
-          <el-radio-group v-model="endian" size="small">
-            <el-radio-button value="le">Little-endian</el-radio-button>
-            <el-radio-button value="be">Big-endian</el-radio-button>
-          </el-radio-group>
-          <span style="font-size: 12px; color: var(--el-text-color-secondary); align-self: center">
-            Если слышен шум вместо речи — переключите.
-          </span>
-        </div>
-
-        <el-divider>Подсунуть запись собеседнику</el-divider>
-
-        <el-form label-width="120px">
-          <el-form-item label="Мелодия">
-            <el-select
-              v-model="selectedMelody"
-              placeholder="Выберите мелодию"
-              style="width: 100%"
-              clearable
-              filterable
-              :loading="loadingMelodies"
-            >
-              <el-option
-                v-for="m in melodies"
-                :key="m.filename"
-                :label="m.name"
-                :value="`sound:custom/${stripExt(m.filename)}`"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button
-              type="success"
-              :icon="VideoPlay"
-              :disabled="!selectedMelody"
-              @click="playSelected"
-            >
-              Воспроизвести
-            </el-button>
-            <el-button
-              type="warning"
-              :icon="VideoPause"
-              :disabled="!currentPlayback"
-              @click="stopPlayback"
-            >
-              Стоп
-            </el-button>
-          </el-form-item>
-        </el-form>
       </div>
 
       <el-alert
@@ -656,6 +687,56 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
+}
+.step-card {
+  margin-bottom: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+.step-card.warning {
+  border-color: var(--el-color-warning);
+  background: var(--el-color-warning-light-9);
+}
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.step-num {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--el-color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.step-card.warning .step-num {
+  background: var(--el-color-warning);
+}
+.step-desc {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 10px;
+}
+.step-hint {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.hint-text {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.bottom-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 .actions-row {
   display: flex;
