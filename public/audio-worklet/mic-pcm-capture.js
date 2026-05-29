@@ -4,7 +4,7 @@
 class MicPcmCapture extends AudioWorkletProcessor {
   constructor() {
     super()
-    this.frameSize = 320 // 20 ms @ 16 kHz
+    this.frameSize = 160 // 20 ms @ 8 kHz
     this.buffer = new Float32Array(this.frameSize)
     this.writeOffset = 0
     this.enabled = false

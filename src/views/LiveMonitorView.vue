@@ -308,6 +308,14 @@ const openChannelsStream = () => {
       if (msg.type === 'channels' && Array.isArray(msg.data)) {
         channels.value = msg.data
         loadingChannels.value = false
+        // Если активный канал, на котором мы сидим, пропал из списка —
+        // звонящий повесил трубку. Автоматически отключаемся, чтобы
+        // оператор не остался "на мёртвой линии".
+        if (connected.value && channelId.value &&
+            !msg.data.some(c => c.channel === channelId.value)) {
+          notifications.info('Звонок завершён', 'Собеседник положил трубку.')
+          disconnect()
+        }
       } else if (msg.type === 'error') {
         lastError.value = msg.detail || 'Ошибка стрима каналов'
       }
@@ -363,7 +371,8 @@ const ensurePlaybackPipeline = async () => {
   if (!Ctx) {
     throw new Error('Web Audio API не поддерживается в этом браузере')
   }
-  audioCtx = new Ctx({ sampleRate: 16000 })
+  // 8 kHz — родной для GSM/Asterisk slin, без транскодинга.
+  audioCtx = new Ctx({ sampleRate: 8000 })
   console.log('[live-monitor] AudioContext created:', audioCtx.state, 'sampleRate=', audioCtx.sampleRate)
 
   if (audioCtx.audioWorklet && typeof audioCtx.audioWorklet.addModule === 'function') {
@@ -468,7 +477,7 @@ const toggleMic = async () => {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
-        sampleRate: 16000,
+        sampleRate: 8000,
         channelCount: 1,
       },
       video: false,
