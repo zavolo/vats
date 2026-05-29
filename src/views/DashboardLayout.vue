@@ -129,6 +129,10 @@
                 <el-icon><Phone /></el-icon>
                 <template #title><span>Звонки</span></template>
               </el-menu-item>
+              <el-menu-item index="/live-monitor" v-show="canReadCalls">
+                <el-icon><Headset /></el-icon>
+                <template #title><span>Прослушка</span></template>
+              </el-menu-item>
               <el-menu-item index="/asterisk-servers" v-show="canReadAsterisk">
                 <el-icon><Connection /></el-icon>
                 <template #title><span>Asterisk</span></template>

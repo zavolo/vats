@@ -28,6 +28,11 @@ const router = createRouter({
           // доступ всем, фильтрация на бекенде
         },
         {
+          path: 'live-monitor',
+          name: 'live-monitor',
+          component: () => import('@/views/LiveMonitorView.vue')
+        },
+        {
           path: 'asterisk-servers',
           name: 'asterisk-servers',
           component: () => import('@/views/AsteriskServersView.vue'),
