@@ -501,6 +501,12 @@ const handleControl = (msg) => {
     if (currentPlayback.value === msg.playback_id) currentPlayback.value = null
   } else if (msg.type === 'error' || msg.type === 'command_error') {
     lastError.value = msg.detail || 'Ошибка'
+    // Если канал больше не существует — сразу освобождаем UI и
+    // обновляем список, чтоб не пытаться слушать «привидение».
+    if (msg.detail && /не существует|завершён|hangup/i.test(msg.detail)) {
+      disconnect()
+      loadChannels()
+    }
   }
 }
 
