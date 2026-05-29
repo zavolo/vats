@@ -54,8 +54,27 @@
           type="success"
           show-icon
           :closable="false"
-          style="margin-bottom: 16px"
+          style="margin-bottom: 8px"
         />
+
+        <el-alert
+          v-if="audioCtxState !== 'running'"
+          title="Звук не активирован"
+          description="AudioContext в состоянии suspended — нажмите «Активировать звук» (политика автоплея браузера)."
+          type="warning"
+          show-icon
+          :closable="false"
+          style="margin-bottom: 8px"
+        />
+
+        <div class="diag-row">
+          <el-tag size="small" :type="audioCtxState === 'running' ? 'success' : 'warning'">
+            AudioContext: {{ audioCtxState }}
+          </el-tag>
+          <el-tag size="small" type="info">
+            Принято: {{ formatBytes(bytesReceived) }}
+          </el-tag>
+        </div>
 
         <div class="actions-row">
           <el-button @click="resumeAudio" :icon="Headset">Активировать звук</el-button>
@@ -153,6 +172,8 @@ const selectedMelody = ref('')
 const melodies = ref([])
 const loadingMelodies = ref(false)
 const micEnabled = ref(false)
+const audioCtxState = ref('—')      // suspended/running — видно пользователю
+const bytesReceived = ref(0)        // счётчик принятых RTP-байт
 // Asterisk slin16 шлёт PCM 16-bit, но порядок байт зависит от версии/сборки
 // (исторически host = LE на Intel, но патч 2015 года правил это в RTP).
 // Сохраняем выбор пользователя.
@@ -222,6 +243,13 @@ const extractEndpoint = (channel) => {
 const formatDuration = (d) => {
   if (!d || d === '00:00:00') return '—'
   return d
+}
+
+const formatBytes = (n) => {
+  if (!n) return '0 Б'
+  if (n < 1024) return `${n} Б`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} КБ`
+  return `${(n / 1024 / 1024).toFixed(1)} МБ`
 }
 
 const loadChannels = async () => {
@@ -309,6 +337,7 @@ const ensurePlaybackPipeline = async () => {
     throw new Error('Web Audio API не поддерживается в этом браузере')
   }
   audioCtx = new Ctx({ sampleRate: 16000 })
+  console.log('[live-monitor] AudioContext created:', audioCtx.state, 'sampleRate=', audioCtx.sampleRate)
 
   if (audioCtx.audioWorklet && typeof audioCtx.audioWorklet.addModule === 'function') {
     // Полный путь — AudioWorklet (нужен HTTPS).
@@ -316,9 +345,14 @@ const ensurePlaybackPipeline = async () => {
     try {
       await audioCtx.audioWorklet.addModule('/audio-worklet/mic-pcm-capture.js')
     } catch (e) { console.warn('mic-pcm-capture load failed:', e) }
-    workletNode = new AudioWorkletNode(audioCtx, 'live-pcm-processor')
+    workletNode = new AudioWorkletNode(audioCtx, 'live-pcm-processor', {
+      numberOfInputs: 0,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    })
     workletNode.connect(audioCtx.destination)
     audioMode.value = 'worklet'
+    console.log('[live-monitor] AudioWorklet mode active')
   } else {
     // Fallback для HTTP: ScriptProcessor (deprecated, но работает).
     // Очередь Float32 кусков, sink из ScriptProcessor берёт их по 4096.
@@ -454,8 +488,12 @@ const stopMic = () => {
 
 const resumeAudio = async () => {
   if (audioCtx && audioCtx.state === 'suspended') {
-    try { await audioCtx.resume() } catch (e) { console.warn(e) }
+    try {
+      await audioCtx.resume()
+      console.log('[live-monitor] AudioContext resumed, state=', audioCtx.state)
+    } catch (e) { console.warn(e) }
   }
+  if (audioCtx) audioCtxState.value = audioCtx.state
 }
 
 const connectTo = async (chan) => {
@@ -463,9 +501,11 @@ const connectTo = async (chan) => {
   channelId.value = chan
   lastError.value = ''
   connecting.value = true
+  bytesReceived.value = 0
   try {
     await ensureAudio()
     await resumeAudio()
+    audioCtxState.value = audioCtx?.state || '—'
     const token = localStorage.getItem('token') || ''
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     const url = `${proto}://${location.host}/api/live-monitor/ws/${encodeURIComponent(chan)}?token=${encodeURIComponent(token)}`
@@ -476,8 +516,14 @@ const connectTo = async (chan) => {
       if (typeof ev.data === 'string') {
         handleControl(JSON.parse(ev.data))
       } else {
-        // slin16: signed 16-bit linear PCM. Endianness в Asterisk
-        // нестабильна между версиями — выбор пользователя в UI.
+        // Первый пакет — попробуем разбудить AudioContext
+        // (политика автоплея — без user gesture он остаётся suspended).
+        if (bytesReceived.value === 0) {
+          console.log('[live-monitor] first audio frame:', ev.data.byteLength, 'bytes, ctx=', audioCtx?.state)
+          if (audioCtx?.state === 'suspended') resumeAudio()
+        }
+        bytesReceived.value += ev.data.byteLength
+        // slin16: signed 16-bit linear PCM.
         const view = new DataView(ev.data)
         const samples = ev.data.byteLength / 2
         const f32 = new Float32Array(samples)
@@ -587,6 +633,11 @@ onUnmounted(() => {
 }
 .live-panel {
   padding: 8px 0;
+}
+.diag-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .actions-row {
   display: flex;
