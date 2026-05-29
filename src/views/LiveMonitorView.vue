@@ -85,6 +85,7 @@
           >
             {{ micEnabled ? 'Микрофон вкл' : 'Говорить (микрофон)' }}
           </el-button>
+          <el-button @click="playTestTone">Тест-сигнал</el-button>
           <el-button type="danger" @click="disconnect">Отключиться</el-button>
         </div>
 
@@ -484,6 +485,23 @@ const stopMic = () => {
     micStream = null
   }
   micEnabled.value = false
+}
+
+// Тест: пропустить 1 секунду синуса 440 Гц через нашу же worklet-цепочку.
+// Если слышно — AudioContext / destination / worklet работают,
+// проблема в данных Asterisk (формат / тишина). Если не слышно —
+// проблема в Web Audio пайплайне (громкость, устройство и пр).
+const playTestTone = async () => {
+  await ensureAudio()
+  await resumeAudio()
+  const sr = audioCtx.sampleRate
+  const len = sr * 1
+  const buf = new Float32Array(len)
+  for (let i = 0; i < len; i++) {
+    buf[i] = 0.3 * Math.sin(2 * Math.PI * 440 * i / sr)
+  }
+  pushPcmToPlayer(buf)
+  notifications.info('Тест', 'Должен прозвучать сигнал ~1 секунду 440 Гц')
 }
 
 const resumeAudio = async () => {
