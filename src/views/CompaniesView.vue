@@ -173,6 +173,7 @@
                 <el-option label="Переадресация на SIP" value="forward" />
                 <el-option label="IVR меню" value="ivr" />
                 <el-option label="Очередь" value="queue" />
+                <el-option label="Антиспам (мелодия при тишине)" value="antispam" />
               </el-select>
             </el-form-item>
 
@@ -253,6 +254,26 @@
                 />
               </el-select>
             </el-form-item>
+
+            <el-form-item label="Мелодия антиспама" v-if="editForm.settings.action_type === 'antispam'">
+              <el-select
+                v-model="editForm.settings.antispam_melody"
+                placeholder="Стандартная (demo-thanks)"
+                style="width: 100%"
+                clearable
+                :loading="loadingMelodies"
+              >
+                <el-option
+                  v-for="melody in melodies"
+                  :key="'antispam_' + melody.filename"
+                  :label="melody.name"
+                  :value="melody.filename"
+                />
+              </el-select>
+              <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+                Включится после 2 секунд тишины со стороны звонящего и крутится до конца звонка
+              </div>
+            </el-form-item>
           </el-form>
         </el-tab-pane>
       </el-tabs>
@@ -311,7 +332,8 @@ const defaultSettings = {
   queue_id: null,
   record_calls: false,
   custom_melody: '',
-  busy_melody: ''
+  busy_melody: '',
+  antispam_melody: ''
 }
 
 const editForm = ref({
@@ -449,7 +471,8 @@ const openEditDialog = async (company) => {
       queue_id: settings.queue_id || null,
       record_calls: settings.record_calls || false,
       custom_melody: settings.custom_melody || '',
-      busy_melody: settings.busy_melody || ''
+      busy_melody: settings.busy_melody || '',
+      antispam_melody: settings.antispam_melody || ''
     }
   }
 
