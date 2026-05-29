@@ -43,6 +43,11 @@
                 <span class="label">AMI:</span>
                 {{ server.ami_host }}:{{ server.ami_port }}
               </span>
+              <span class="endpoint">
+                <span class="label">ARI:</span>
+                {{ server.ami_host }}:{{ server.ari_port }}
+                <el-tag v-if="!server.ari_password_set" type="warning" size="small">не настроен</el-tag>
+              </span>
             </div>
           </div>
 
@@ -108,6 +113,19 @@
         <el-form-item label="Capacity">
           <el-input-number v-model="createForm.capacity" :min="1" :max="1000" style="width: 100%" />
         </el-form-item>
+        <el-divider>ARI (для прослушки и инжекта звука)</el-divider>
+        <el-form-item label="ARI Порт">
+          <el-input-number v-model="createForm.ari_port" :min="1" :max="65535" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="ARI Логин">
+          <el-input v-model="createForm.ari_username" placeholder="cloudpbx" />
+        </el-form-item>
+        <el-form-item label="ARI Пароль">
+          <el-input v-model="createForm.ari_password" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="External media host">
+          <el-input v-model="createForm.external_media_host" placeholder="IP бэкенда, доступный для Asterisk (напр. 172.17.0.1)" />
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showCreateDialog = false">Отмена</el-button>
@@ -146,6 +164,19 @@
         </el-form-item>
         <el-form-item label="Активность">
           <el-switch v-model="editForm.is_active" />
+        </el-form-item>
+        <el-divider>ARI (для прослушки и инжекта звука)</el-divider>
+        <el-form-item label="ARI Порт">
+          <el-input-number v-model="editForm.ari_port" :min="1" :max="65535" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="ARI Логин">
+          <el-input v-model="editForm.ari_username" placeholder="cloudpbx" />
+        </el-form-item>
+        <el-form-item label="ARI Пароль">
+          <el-input v-model="editForm.ari_password" type="password" show-password placeholder="Оставьте пустым, чтобы не менять" />
+        </el-form-item>
+        <el-form-item label="External media host">
+          <el-input v-model="editForm.external_media_host" placeholder="IP бэкенда, доступный для Asterisk (напр. 172.17.0.1)" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -197,7 +228,11 @@ const createForm = ref({
   ami_port: 5038,
   ami_username: '',
   ami_password: '',
-  capacity: 100
+  capacity: 100,
+  ari_port: 8088,
+  ari_username: 'cloudpbx',
+  ari_password: '',
+  external_media_host: ''
 })
 
 const editForm = ref({
@@ -210,7 +245,11 @@ const editForm = ref({
   ami_username: '',
   ami_password: '',
   capacity: 100,
-  is_active: true
+  is_active: true,
+  ari_port: 8088,
+  ari_username: '',
+  ari_password: '',
+  external_media_host: ''
 })
 
 const loadServers = async () => {
@@ -257,7 +296,11 @@ const createServer = async () => {
       ami_port: 5038,
       ami_username: '',
       ami_password: '',
-      capacity: 100
+      capacity: 100,
+      ari_port: 8088,
+      ari_username: 'cloudpbx',
+      ari_password: '',
+      external_media_host: ''
     }
     await loadServers()
   } catch (error) {
@@ -280,7 +323,11 @@ const openEditDialog = (server) => {
     ami_username: server.ami_username || '',
     ami_password: '',
     capacity: server.capacity || 100,
-    is_active: server.is_active
+    is_active: server.is_active,
+    ari_port: server.ari_port || 8088,
+    ari_username: server.ari_username || '',
+    ari_password: '',
+    external_media_host: server.external_media_host || ''
   }
   showEditDialog.value = true
 }
@@ -289,9 +336,8 @@ const updateServer = async () => {
   try {
     saving.value = true
     const updateData = { ...editForm.value }
-    if (!updateData.ami_password) {
-      delete updateData.ami_password
-    }
+    if (!updateData.ami_password) delete updateData.ami_password
+    if (!updateData.ari_password) delete updateData.ari_password
     await apiClient.put(`/asterisk-servers/${currentServer.value.id}`, updateData)
     notifications.success('Успешно', 'Сервер обновлён')
     showEditDialog.value = false
@@ -307,10 +353,16 @@ const updateServer = async () => {
 const testConnection = async (server) => {
   try {
     const response = await apiClient.post(`/asterisk-servers/${server.id}/test-connection`)
-    if (response.data.status === 'online') {
-      notifications.success('Успешно', 'Подключение установлено')
+    const ami = response.data.ami || {}
+    const ari = response.data.ari || {}
+    const lines = []
+    if (ami.message) lines.push(ami.message)
+    if (ari.message) lines.push(ari.message)
+    const msg = lines.join(' • ') || 'Тест выполнен'
+    if (ami.status === 'online' && (ari.status === 'online' || ari.status === 'skipped')) {
+      notifications.success('Подключение', msg)
     } else {
-      notifications.warning('Предупреждение', response.data.message || 'Подключение не установлено')
+      notifications.warning('Подключение', msg)
     }
     await loadServers()
   } catch (error) {

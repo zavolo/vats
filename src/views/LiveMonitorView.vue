@@ -128,7 +128,8 @@ const loadingMelodies = ref(false)
 let ws = null
 let audioCtx = null
 let workletNode = null
-let refreshTimer = null
+let streamWs = null
+let streamReconnectTimer = null
 
 const statusLabel = computed(() => {
   if (connecting.value) return 'Подключение…'
@@ -152,6 +153,50 @@ const loadChannels = async () => {
     lastError.value = e.response?.data?.detail || 'Не удалось получить список каналов'
   } finally {
     loadingChannels.value = false
+  }
+}
+
+const openChannelsStream = () => {
+  closeChannelsStream()
+  const token = localStorage.getItem('token') || ''
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+  const url = `${proto}://${location.host}/api/live-monitor/channels-stream?token=${encodeURIComponent(token)}`
+  try {
+    streamWs = new WebSocket(url)
+  } catch (e) {
+    console.warn('channels-stream init failed:', e)
+    return
+  }
+  streamWs.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data)
+      if (msg.type === 'channels' && Array.isArray(msg.data)) {
+        channels.value = msg.data
+        loadingChannels.value = false
+      } else if (msg.type === 'error') {
+        lastError.value = msg.detail || 'Ошибка стрима каналов'
+      }
+    } catch {}
+  }
+  streamWs.onclose = () => {
+    streamWs = null
+    if (streamReconnectTimer) return
+    streamReconnectTimer = setTimeout(() => {
+      streamReconnectTimer = null
+      if (!connected.value) openChannelsStream()
+    }, 3000)
+  }
+  streamWs.onerror = () => {}
+}
+
+const closeChannelsStream = () => {
+  if (streamReconnectTimer) {
+    clearTimeout(streamReconnectTimer)
+    streamReconnectTimer = null
+  }
+  if (streamWs) {
+    try { streamWs.close() } catch {}
+    streamWs = null
   }
 }
 
@@ -256,13 +301,11 @@ const stopPlayback = () => {
 onMounted(() => {
   loadChannels()
   loadMelodies()
-  refreshTimer = setInterval(() => {
-    if (!connected.value) loadChannels()
-  }, 5000)
+  openChannelsStream()
 })
 
 onUnmounted(() => {
-  if (refreshTimer) clearInterval(refreshTimer)
+  closeChannelsStream()
   disconnect()
   if (audioCtx) {
     try { audioCtx.close() } catch {}
