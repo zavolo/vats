@@ -203,11 +203,17 @@ const endian = ref(localStorage.getItem('live-monitor-endian') || 'be')
 let ws = null
 let audioCtx = null
 let workletNode = null
+let gainNode = null
 let micNode = null
 let micStream = null
 let micSource = null
 let streamWs = null
 let streamReconnectTimer = null
+// очередь сэмплов на 8 kHz; ScriptProcessor берёт по 4096 и сам ресемплит к native
+const inQueue = []
+let inReadOffset = 0
+let resampleFracPos = 0
+let lastSample = 0
 
 const statusLabel = computed(() => {
   if (connecting.value) return 'Подключение…'
@@ -365,81 +371,62 @@ const ensurePlaybackPipeline = async () => {
   if (!Ctx) {
     throw new Error('Web Audio API не поддерживается в этом браузере')
   }
-  // Не форсим sampleRate — устройство играет в своём native (обычно
-  // 44100/48000). В AudioWorklet делаем upsample 8000→native сами.
   audioCtx = new Ctx()
-  console.log('[live-monitor] AudioContext created:', audioCtx.state, 'sampleRate=', audioCtx.sampleRate)
+  console.log('[live-monitor] AudioContext created:', audioCtx.state,
+              'sampleRate=', audioCtx.sampleRate,
+              'destination ch:', audioCtx.destination.channelCount)
 
-  if (audioCtx.audioWorklet && typeof audioCtx.audioWorklet.addModule === 'function') {
-    // Полный путь — AudioWorklet (нужен HTTPS).
-    await audioCtx.audioWorklet.addModule('/audio-worklet/live-pcm-processor.js')
-    try {
-      await audioCtx.audioWorklet.addModule('/audio-worklet/mic-pcm-capture.js')
-    } catch (e) { console.warn('mic-pcm-capture load failed:', e) }
-    workletNode = new AudioWorkletNode(audioCtx, 'live-pcm-processor', {
-      numberOfInputs: 0,
-      numberOfOutputs: 1,
-      outputChannelCount: [1],
-    })
-    workletNode.connect(audioCtx.destination)
-    audioMode.value = 'worklet'
-    console.log('[live-monitor] AudioWorklet mode active')
-  } else {
-    // Fallback для HTTP: ScriptProcessor (deprecated, но работает).
-    // Очередь Float32 кусков, sink из ScriptProcessor берёт их по 4096.
-    workletNode = audioCtx.createScriptProcessor(4096, 0, 1)
-    workletNode._queue = []
-    workletNode._readOffset = 0
-    workletNode.onaudioprocess = (e) => {
-      const out = e.outputBuffer.getChannelData(0)
-      let filled = 0
-      while (filled < out.length && workletNode._queue.length > 0) {
-        const head = workletNode._queue[0]
-        const take = Math.min(head.length - workletNode._readOffset, out.length - filled)
-        for (let i = 0; i < take; i++) {
-          out[filled + i] = head[workletNode._readOffset + i]
+  // ScriptProcessor — deprecated, но реально работает везде в отличие
+  // от AudioWorklet (на некоторых ОС/конфигах AudioContext+Worklet
+  // выдаёт тишину при правильно подключенном destination).
+  // 4096 sample buffer на native rate (~85 мс @ 48k), 1 output, 0 inputs.
+  workletNode = audioCtx.createScriptProcessor(4096, 0, 1)
+  workletNode.onaudioprocess = (e) => {
+    const out = e.outputBuffer.getChannelData(0)
+    const step = 8000 / audioCtx.sampleRate
+    for (let i = 0; i < out.length; i++) {
+      resampleFracPos += step
+      while (resampleFracPos >= 1.0) {
+        // нужен новый сэмпл из 8k-очереди
+        while (inQueue.length > 0 && inReadOffset >= inQueue[0].length) {
+          inQueue.shift()
+          inReadOffset = 0
         }
-        filled += take
-        workletNode._readOffset += take
-        if (workletNode._readOffset >= head.length) {
-          workletNode._queue.shift()
-          workletNode._readOffset = 0
+        if (inQueue.length === 0) {
+          // нет данных → плавно гасим до 0, не оставляем DC offset
+          lastSample *= 0.95
+          resampleFracPos = 0
+          break
         }
+        lastSample = inQueue[0][inReadOffset++]
+        resampleFracPos -= 1.0
       }
-      for (let i = filled; i < out.length; i++) out[i] = 0
-    }
-    workletNode.connect(audioCtx.destination)
-    audioMode.value = 'script'
-    if (!isSecureContext()) {
-      lastError.value =
-        'Микрофон в этом окне работать не будет — нужно открыть страницу через защищённое соединение. ' +
-        'Слушать собеседника можно как обычно.'
+      out[i] = lastSample
     }
   }
+
+  // GainNode явный = 1.0 чтобы исключить случайный mute
+  gainNode = audioCtx.createGain()
+  gainNode.gain.value = 1.0
+  workletNode.connect(gainNode)
+  gainNode.connect(audioCtx.destination)
+  audioMode.value = 'script'
+  console.log('[live-monitor] ScriptProcessor pipeline ready')
 }
 
 const pushPcmToPlayer = (float32) => {
-  if (!workletNode) return
-  if (audioMode.value === 'worklet') {
-    workletNode.port.postMessage({ type: 'samples', data: float32 }, [float32.buffer])
-  } else if (audioMode.value === 'script') {
-    workletNode._queue.push(float32)
-    // Чтоб не разбух при дропе пакетов — ограничим ~2с буфера.
-    while (workletNode._queue.length > 64) workletNode._queue.shift()
-  }
+  inQueue.push(float32)
+  // не давать буферу разбухать
+  while (inQueue.length > 64) inQueue.shift()
 }
 
 const flushPlayer = () => {
-  if (!workletNode) return
-  if (audioMode.value === 'worklet') {
-    workletNode.port.postMessage({ type: 'flush' })
-  } else if (audioMode.value === 'script') {
-    workletNode._queue.length = 0
-    workletNode._readOffset = 0
-  }
+  inQueue.length = 0
+  inReadOffset = 0
+  resampleFracPos = 0
+  lastSample = 0
 }
 
-// Старое имя для совместимости с остальным кодом.
 const ensureAudio = ensurePlaybackPipeline
 
 const toggleMic = async () => {
@@ -463,10 +450,8 @@ const toggleMic = async () => {
   try {
     await ensureAudio()
     await resumeAudio()
-    if (audioMode.value !== 'worklet') {
-      lastError.value = 'Микрофон сейчас недоступен — откройте сайт через защищённое соединение.'
-      return
-    }
+    // микрофон делаем через простой ScriptProcessor (для надёжности
+    // и совместимости с playback-пайплайном)
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -477,14 +462,36 @@ const toggleMic = async () => {
       video: false,
     })
     micSource = audioCtx.createMediaStreamSource(micStream)
-    micNode = new AudioWorkletNode(audioCtx, 'mic-pcm-capture')
-    micNode.port.onmessage = (e) => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(e.data)  // ArrayBuffer Int16LE — backend завернёт в RTP
+    // ScriptProcessor для микрофона — копит сэмплы native rate'а,
+    // downsample-им к 8 kHz и шлём как int16 BE 20мс фреймами.
+    micNode = audioCtx.createScriptProcessor(4096, 1, 1)
+    let micFracPos = 0
+    const micFrameSize = 160  // 20 мс @ 8 kHz
+    const micFrame = new Float32Array(micFrameSize)
+    let micWriteOffset = 0
+    micNode.onaudioprocess = (e) => {
+      const input = e.inputBuffer.getChannelData(0)
+      const step = audioCtx.sampleRate / 8000
+      while (micFracPos < input.length) {
+        const idx = Math.floor(micFracPos)
+        micFrame[micWriteOffset++] = input[idx]
+        micFracPos += step
+        if (micWriteOffset >= micFrameSize) {
+          const ab = new ArrayBuffer(micFrameSize * 2)
+          const view = new DataView(ab)
+          for (let k = 0; k < micFrameSize; k++) {
+            const s = Math.max(-1, Math.min(1, micFrame[k]))
+            const i16 = s < 0 ? s * 0x8000 : s * 0x7FFF
+            view.setInt16(k * 2, i16 | 0, false) // BE для slin Asterisk
+          }
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(ab)
+          micWriteOffset = 0
+        }
       }
+      micFracPos -= input.length
     }
     micSource.connect(micNode)
-    micNode.port.postMessage({ enabled: true, littleEndian: endian.value === 'le' })
+    micNode.connect(audioCtx.destination)  // ScriptProcessor требует connect, gain=0 не давая эху
     micEnabled.value = true
   } catch (e) {
     // NotAllowedError, NotFoundError и т.п. от getUserMedia
@@ -523,13 +530,18 @@ const stopMic = () => {
 const playTestTone = async () => {
   await ensureAudio()
   await resumeAudio()
-  const sr = audioCtx.sampleRate
-  const len = sr * 1
-  const buf = new Float32Array(len)
-  for (let i = 0; i < len; i++) {
-    buf[i] = 0.3 * Math.sin(2 * Math.PI * 440 * i / sr)
-  }
-  pushPcmToPlayer(buf)
+  // OscillatorNode напрямую в destination — минует нашу очередь и
+  // ScriptProcessor. Если этот тон СЛЫШНО, а голос НЕТ — проблема в
+  // pushPcmToPlayer/ScriptProcessor. Если оба тихие — Web Audio
+  // в этом браузере вообще ничего не озвучивает (громкость/устройство).
+  const osc = audioCtx.createOscillator()
+  const g = audioCtx.createGain()
+  osc.frequency.value = 440
+  g.gain.value = 0.3
+  osc.connect(g)
+  g.connect(audioCtx.destination)
+  osc.start()
+  osc.stop(audioCtx.currentTime + 1)
   notifications.info('Проверка звука', 'Должен прозвучать короткий сигнал около секунды.')
 }
 
