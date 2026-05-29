@@ -6,7 +6,6 @@
           <span>SIP аккаунты</span>
           <div class="header-actions">
             <el-select v-model="filters.isRegistered" placeholder="Статус" clearable @change="loadEndpoints" size="small" style="width: 110px">
-              <el-option label="Все" :value="null" />
               <el-option label="Онлайн" :value="true" />
               <el-option label="Оффлайн" :value="false" />
             </el-select>
