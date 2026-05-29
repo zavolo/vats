@@ -30,6 +30,10 @@
   </head>
   <body>
     <div id="app"></div>
+    <!-- Tone.js — мощная Web Audio library для voice changer'а в live-monitor.
+         PitchShift с формантами, FrequencyShifter, Distortion, Reverb, BitCrusher.
+         Загружаем заранее чтобы не блокировать первый клик "Включить микрофон". -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.9.17/build/Tone.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
