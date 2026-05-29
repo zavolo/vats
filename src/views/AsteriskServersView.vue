@@ -48,6 +48,24 @@
                 {{ server.ami_host }}:{{ server.ari_port }}
                 <el-tag v-if="!server.ari_password_set" type="warning" size="small">не настроен</el-tag>
               </span>
+              <span class="endpoint">
+                <span class="label">Stasis-app:</span>
+                <el-tag
+                  :type="server.keeper_connected ? 'success' : 'danger'"
+                  size="small"
+                  :title="server.keeper_connected ? 'Бэкенд подключён к ARI, звонки в Stasis работают' : 'Бэкенд не может подключиться к ARI events — проверьте ARI пароль'"
+                >
+                  {{ server.keeper_connected ? '● онлайн' : '○ отключён' }}
+                </el-tag>
+                <el-tag
+                  v-if="server.keeper_active_channels && server.keeper_active_channels.length"
+                  type="info"
+                  size="small"
+                  :title="`Каналы в Stasis: ${server.keeper_active_channels.join(', ')}`"
+                >
+                  {{ server.keeper_active_channels.length }} канал{{ pluralizeChannels(server.keeper_active_channels.length) }}
+                </el-tag>
+              </span>
             </div>
           </div>
 
@@ -188,7 +206,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, onMounted, onActivated, onUnmounted } from 'vue'
 import { Refresh, Plus, Edit, Delete, Connection } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useNotifications } from '@/composables/useNotifications'
@@ -206,6 +224,8 @@ const pluralize = (n, forms) => {
   if (n1 === 1) return forms[0]
   return forms[2]
 }
+
+const pluralizeChannels = (n) => pluralize(n, ['', 'а', 'ов'])
 
 const servers = ref([])
 const loading = ref(false)
@@ -252,9 +272,9 @@ const editForm = ref({
   external_media_host: ''
 })
 
-const loadServers = async () => {
+const loadServers = async (silent = false) => {
   try {
-    loading.value = true
+    if (!silent) loading.value = true
     const params = {
       skip: (pagination.value.page - 1) * pagination.value.limit,
       limit: pagination.value.limit,
@@ -393,8 +413,16 @@ const deleteServer = async (server) => {
   }
 }
 
+let refreshTimer = null
+
 onMounted(() => {
   loadServers()
+  // Лёгкий поллинг — keeper'ы и активные каналы видно сразу.
+  refreshTimer = setInterval(() => loadServers(true), 3000)
+})
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
 })
 
 onActivated(() => {
