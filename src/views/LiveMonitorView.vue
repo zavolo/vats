@@ -69,6 +69,17 @@
           <el-button type="danger" @click="disconnect">Отключиться</el-button>
         </div>
 
+        <div class="actions-row" style="margin-top: 8px">
+          <span style="font-size: 13px; align-self: center">Порядок байт PCM:</span>
+          <el-radio-group v-model="endian" size="small">
+            <el-radio-button value="le">Little-endian</el-radio-button>
+            <el-radio-button value="be">Big-endian</el-radio-button>
+          </el-radio-group>
+          <span style="font-size: 12px; color: var(--el-text-color-secondary); align-self: center">
+            Если слышен шум вместо речи — переключите.
+          </span>
+        </div>
+
         <el-divider>Подсунуть запись собеседнику</el-divider>
 
         <el-form label-width="120px">
@@ -142,6 +153,10 @@ const selectedMelody = ref('')
 const melodies = ref([])
 const loadingMelodies = ref(false)
 const micEnabled = ref(false)
+// Asterisk slin16 шлёт PCM 16-bit, но порядок байт зависит от версии/сборки
+// (исторически host = LE на Intel, но патч 2015 года правил это в RTP).
+// Сохраняем выбор пользователя.
+const endian = ref(localStorage.getItem('live-monitor-endian') || 'le')
 
 let ws = null
 let audioCtx = null
@@ -405,7 +420,7 @@ const toggleMic = async () => {
       }
     }
     micSource.connect(micNode)
-    micNode.port.postMessage({ enabled: true })
+    micNode.port.postMessage({ enabled: true, littleEndian: endian.value === 'le' })
     micEnabled.value = true
   } catch (e) {
     // NotAllowedError, NotFoundError и т.п. от getUserMedia
@@ -461,13 +476,14 @@ const connectTo = async (chan) => {
       if (typeof ev.data === 'string') {
         handleControl(JSON.parse(ev.data))
       } else {
-        // Asterisk slin16 = signed 16-bit big-endian, читаем через DataView
-        // чтобы не получить белый шум на little-endian-системах.
+        // slin16: signed 16-bit linear PCM. Endianness в Asterisk
+        // нестабильна между версиями — выбор пользователя в UI.
         const view = new DataView(ev.data)
         const samples = ev.data.byteLength / 2
         const f32 = new Float32Array(samples)
+        const littleEndian = endian.value === 'le'
         for (let i = 0; i < samples; i++) {
-          f32[i] = view.getInt16(i * 2, false) / 32768  // false = big-endian
+          f32[i] = view.getInt16(i * 2, littleEndian) / 32768
         }
         pushPcmToPlayer(f32)
       }
@@ -524,6 +540,15 @@ const stopPlayback = () => {
   if (!ws || !currentPlayback.value) return
   ws.send(JSON.stringify({ type: 'stop', playback_id: currentPlayback.value }))
 }
+
+import { watch } from 'vue'
+watch(endian, (v) => {
+  localStorage.setItem('live-monitor-endian', v)
+  // если микрофон активен — поменять порядок байт на лету
+  if (micNode) {
+    micNode.port.postMessage({ littleEndian: v === 'le' })
+  }
+})
 
 onMounted(() => {
   loadChannels()

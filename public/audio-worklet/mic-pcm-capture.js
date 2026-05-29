@@ -8,9 +8,13 @@ class MicPcmCapture extends AudioWorkletProcessor {
     this.buffer = new Float32Array(this.frameSize)
     this.writeOffset = 0
     this.enabled = false
+    this.littleEndian = true   // настраивается из main thread
     this.port.onmessage = (e) => {
       if (e.data && typeof e.data.enabled === 'boolean') {
         this.enabled = e.data.enabled
+      }
+      if (e.data && typeof e.data.littleEndian === 'boolean') {
+        this.littleEndian = e.data.littleEndian
       }
     }
   }
@@ -28,13 +32,13 @@ class MicPcmCapture extends AudioWorkletProcessor {
       this.writeOffset += take
       i += take
       if (this.writeOffset >= this.frameSize) {
-        // Float32 → Int16 big-endian (slin16 в Asterisk).
+        // Float32 → Int16, порядок байт по настройке (slin16 в Asterisk).
         const ab = new ArrayBuffer(this.frameSize * 2)
         const view = new DataView(ab)
         for (let k = 0; k < this.frameSize; k++) {
           const s = Math.max(-1, Math.min(1, this.buffer[k]))
           const i16 = s < 0 ? s * 0x8000 : s * 0x7FFF
-          view.setInt16(k * 2, i16 | 0, false)  // false = big-endian
+          view.setInt16(k * 2, i16 | 0, this.littleEndian)
         }
         this.port.postMessage(ab, [ab])
         this.writeOffset = 0
