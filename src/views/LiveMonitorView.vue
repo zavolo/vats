@@ -279,23 +279,114 @@ const loadMelodies = async () => {
 
 const selectChannel = (row) => connectTo(row.channel)
 
-const ensureAudio = async () => {
+// audio.kind: 'worklet' (HTTPS) | 'script' (HTTP fallback) | 'none'
+const audioMode = ref('none')
+const isSecureContext = () =>
+  window.isSecureContext ||
+  location.protocol === 'https:' ||
+  location.hostname === 'localhost' ||
+  location.hostname === '127.0.0.1'
+
+const ensurePlaybackPipeline = async () => {
   if (audioCtx) return
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
-  await audioCtx.audioWorklet.addModule('/audio-worklet/live-pcm-processor.js')
-  await audioCtx.audioWorklet.addModule('/audio-worklet/mic-pcm-capture.js')
-  workletNode = new AudioWorkletNode(audioCtx, 'live-pcm-processor')
-  workletNode.connect(audioCtx.destination)
+  const Ctx = window.AudioContext || window.webkitAudioContext
+  if (!Ctx) {
+    throw new Error('Web Audio API не поддерживается в этом браузере')
+  }
+  audioCtx = new Ctx({ sampleRate: 16000 })
+
+  if (audioCtx.audioWorklet && typeof audioCtx.audioWorklet.addModule === 'function') {
+    // Полный путь — AudioWorklet (нужен HTTPS).
+    await audioCtx.audioWorklet.addModule('/audio-worklet/live-pcm-processor.js')
+    try {
+      await audioCtx.audioWorklet.addModule('/audio-worklet/mic-pcm-capture.js')
+    } catch (e) { console.warn('mic-pcm-capture load failed:', e) }
+    workletNode = new AudioWorkletNode(audioCtx, 'live-pcm-processor')
+    workletNode.connect(audioCtx.destination)
+    audioMode.value = 'worklet'
+  } else {
+    // Fallback для HTTP: ScriptProcessor (deprecated, но работает).
+    // Очередь Float32 кусков, sink из ScriptProcessor берёт их по 4096.
+    workletNode = audioCtx.createScriptProcessor(4096, 0, 1)
+    workletNode._queue = []
+    workletNode._readOffset = 0
+    workletNode.onaudioprocess = (e) => {
+      const out = e.outputBuffer.getChannelData(0)
+      let filled = 0
+      while (filled < out.length && workletNode._queue.length > 0) {
+        const head = workletNode._queue[0]
+        const take = Math.min(head.length - workletNode._readOffset, out.length - filled)
+        for (let i = 0; i < take; i++) {
+          out[filled + i] = head[workletNode._readOffset + i]
+        }
+        filled += take
+        workletNode._readOffset += take
+        if (workletNode._readOffset >= head.length) {
+          workletNode._queue.shift()
+          workletNode._readOffset = 0
+        }
+      }
+      for (let i = filled; i < out.length; i++) out[i] = 0
+    }
+    workletNode.connect(audioCtx.destination)
+    audioMode.value = 'script'
+    if (!isSecureContext()) {
+      lastError.value =
+        'Сайт открыт по HTTP — микрофон работать не будет (нужен HTTPS). ' +
+        'Прослушка работает в режиме совместимости.'
+    }
+  }
 }
+
+const pushPcmToPlayer = (float32) => {
+  if (!workletNode) return
+  if (audioMode.value === 'worklet') {
+    workletNode.port.postMessage({ type: 'samples', data: float32 }, [float32.buffer])
+  } else if (audioMode.value === 'script') {
+    workletNode._queue.push(float32)
+    // Чтоб не разбух при дропе пакетов — ограничим ~2с буфера.
+    while (workletNode._queue.length > 64) workletNode._queue.shift()
+  }
+}
+
+const flushPlayer = () => {
+  if (!workletNode) return
+  if (audioMode.value === 'worklet') {
+    workletNode.port.postMessage({ type: 'flush' })
+  } else if (audioMode.value === 'script') {
+    workletNode._queue.length = 0
+    workletNode._readOffset = 0
+  }
+}
+
+// Старое имя для совместимости с остальным кодом.
+const ensureAudio = ensurePlaybackPipeline
 
 const toggleMic = async () => {
   if (micEnabled.value) {
     stopMic()
     return
   }
+  // Browser requirement: getUserMedia + AudioWorklet работают только в
+  // secure context. Покажем понятную ошибку, не пытаясь упасть на исключении.
+  if (!isSecureContext()) {
+    lastError.value =
+      'Микрофон доступен только при подключении по HTTPS. ' +
+      'Откройте сайт по адресу https://… или используйте localhost.'
+    notifications.warning('HTTPS обязателен', 'Микрофон в браузере работает только в защищённом контексте.')
+    return
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    lastError.value = 'Браузер не поддерживает доступ к микрофону'
+    return
+  }
   try {
     await ensureAudio()
     await resumeAudio()
+    if (audioMode.value !== 'worklet') {
+      lastError.value = 'Микрофон требует AudioWorklet (доступен только по HTTPS).'
+      return
+    }
     micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -317,7 +408,14 @@ const toggleMic = async () => {
     micNode.port.postMessage({ enabled: true })
     micEnabled.value = true
   } catch (e) {
-    lastError.value = e.message || 'Не удалось включить микрофон'
+    // NotAllowedError, NotFoundError и т.п. от getUserMedia
+    const name = e?.name || ''
+    const text = name === 'NotAllowedError'
+      ? 'Доступ к микрофону отклонён — разрешите в настройках сайта.'
+      : (name === 'NotFoundError'
+          ? 'Микрофон не найден.'
+          : (e?.message || 'Не удалось включить микрофон'))
+    lastError.value = text
     stopMic()
   }
 }
@@ -366,7 +464,7 @@ const connectTo = async (chan) => {
         const i16 = new Int16Array(ev.data)
         const f32 = new Float32Array(i16.length)
         for (let i = 0; i < i16.length; i++) f32[i] = i16[i] / 32768
-        workletNode?.port.postMessage({ type: 'samples', data: f32 }, [f32.buffer])
+        pushPcmToPlayer(f32)
       }
     }
     ws.onerror = () => { lastError.value = 'Ошибка WebSocket' }
@@ -374,7 +472,7 @@ const connectTo = async (chan) => {
       connected.value = false
       connecting.value = false
       ws = null
-      workletNode?.port.postMessage({ type: 'flush' })
+      flushPlayer()
     }
   } catch (e) {
     lastError.value = e.message || 'Ошибка подключения'
