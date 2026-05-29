@@ -9,6 +9,7 @@
               <el-option label="Все типы" value="" />
               <el-option label="Входящие" value="incoming" />
               <el-option label="Исходящие" value="outgoing" />
+              <el-option label="Внутренние" value="internal" />
             </el-select>
             <el-button type="primary" @click="loadCalls" size="small" :icon="Refresh">
               Обновить
@@ -28,7 +29,7 @@
       <div v-else class="calls-list">
         <div v-for="call in calls" :key="call.id" class="call-row">
           <div class="call-direction">
-            <el-icon :class="call.call_type === 'incoming' ? 'incoming' : 'outgoing'">
+            <el-icon :class="call.call_type === 'incoming' ? 'incoming' : call.call_type === 'internal' ? 'internal' : 'outgoing'">
               <Phone />
             </el-icon>
           </div>
@@ -382,6 +383,10 @@ onUnmounted(() => {
 
 .call-direction .outgoing {
   color: var(--el-color-primary);
+}
+
+.call-direction .internal {
+  color: var(--el-color-warning);
 }
 
 .call-info {

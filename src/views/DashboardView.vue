@@ -39,7 +39,7 @@
           <div v-else class="calls-list">
             <div v-for="call in recentCalls" :key="call.id" class="call-row">
               <div class="call-direction">
-                <el-icon :class="call.call_type === 'incoming' ? 'incoming' : 'outgoing'">
+                <el-icon :class="call.call_type === 'incoming' ? 'incoming' : call.call_type === 'internal' ? 'internal' : 'outgoing'">
                   <Phone />
                 </el-icon>
               </div>
@@ -502,6 +502,10 @@ onActivated(() => {
 
 .call-direction .outgoing {
   color: var(--el-color-primary);
+}
+
+.call-direction .internal {
+  color: var(--el-color-warning);
 }
 
 .call-main {
