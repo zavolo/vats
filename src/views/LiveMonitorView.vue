@@ -49,6 +49,13 @@
 
         <div class="actions-row">
           <el-button @click="resumeAudio" :icon="Headset">Активировать звук</el-button>
+          <el-button
+            :type="micEnabled ? 'success' : 'primary'"
+            @click="toggleMic"
+            :icon="Microphone"
+          >
+            {{ micEnabled ? 'Микрофон вкл' : 'Говорить (микрофон)' }}
+          </el-button>
           <el-button type="danger" @click="disconnect">Отключиться</el-button>
         </div>
 
@@ -108,7 +115,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { Refresh, VideoPlay, VideoPause, Headset } from '@element-plus/icons-vue'
+import { Refresh, VideoPlay, VideoPause, Headset, Microphone } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
 import { useNotifications } from '@/composables/useNotifications'
 
@@ -124,10 +131,14 @@ const currentPlayback = ref(null)
 const selectedMelody = ref('')
 const melodies = ref([])
 const loadingMelodies = ref(false)
+const micEnabled = ref(false)
 
 let ws = null
 let audioCtx = null
 let workletNode = null
+let micNode = null
+let micStream = null
+let micSource = null
 let streamWs = null
 let streamReconnectTimer = null
 
@@ -218,8 +229,60 @@ const ensureAudio = async () => {
   if (audioCtx) return
   audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
   await audioCtx.audioWorklet.addModule('/audio-worklet/live-pcm-processor.js')
+  await audioCtx.audioWorklet.addModule('/audio-worklet/mic-pcm-capture.js')
   workletNode = new AudioWorkletNode(audioCtx, 'live-pcm-processor')
   workletNode.connect(audioCtx.destination)
+}
+
+const toggleMic = async () => {
+  if (micEnabled.value) {
+    stopMic()
+    return
+  }
+  try {
+    await ensureAudio()
+    await resumeAudio()
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 16000,
+        channelCount: 1,
+      },
+      video: false,
+    })
+    micSource = audioCtx.createMediaStreamSource(micStream)
+    micNode = new AudioWorkletNode(audioCtx, 'mic-pcm-capture')
+    micNode.port.onmessage = (e) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(e.data)  // ArrayBuffer Int16LE — backend завернёт в RTP
+      }
+    }
+    micSource.connect(micNode)
+    micNode.port.postMessage({ enabled: true })
+    micEnabled.value = true
+  } catch (e) {
+    lastError.value = e.message || 'Не удалось включить микрофон'
+    stopMic()
+  }
+}
+
+const stopMic = () => {
+  if (micNode) {
+    try { micNode.port.postMessage({ enabled: false }) } catch {}
+    try { micNode.disconnect() } catch {}
+    micNode = null
+  }
+  if (micSource) {
+    try { micSource.disconnect() } catch {}
+    micSource = null
+  }
+  if (micStream) {
+    micStream.getTracks().forEach(t => { try { t.stop() } catch {} })
+    micStream = null
+  }
+  micEnabled.value = false
 }
 
 const resumeAudio = async () => {
@@ -266,6 +329,7 @@ const connectTo = async (chan) => {
 }
 
 const disconnect = () => {
+  stopMic()
   if (ws) {
     try { ws.close() } catch {}
   }
@@ -312,6 +376,7 @@ onUnmounted(() => {
     audioCtx = null
     workletNode = null
   }
+  stopMic()
 })
 </script>
 

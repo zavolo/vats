@@ -174,6 +174,7 @@
                 <el-option label="IVR меню" value="ivr" />
                 <el-option label="Очередь" value="queue" />
                 <el-option label="Антиспам (мелодия при тишине)" value="antispam" />
+                <el-option label="Ручной разговор через браузер" value="manual" />
               </el-select>
             </el-form-item>
 
