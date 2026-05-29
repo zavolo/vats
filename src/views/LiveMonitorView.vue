@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>Прослушка звонка в реальном времени</span>
+          <span>Разговор по чужому звонку</span>
           <div class="status-block">
             <el-tag :type="statusType" effect="dark">{{ statusLabel }}</el-tag>
             <el-button :icon="Refresh" circle size="small" @click="loadChannels" :loading="loadingChannels" title="Обновить список"/>
@@ -50,70 +50,63 @@
 
       <div v-else class="live-panel">
         <el-alert
-          :title="`Подключено к ${channelId}`"
+          :title="`Вы на линии: ${channelId}`"
           type="success"
           show-icon
           :closable="false"
           style="margin-bottom: 12px"
-        >
-          <template #default>
-            <div style="font-size: 13px">
-              Сетевой поток: <b>{{ formatBytes(bytesReceived) }}</b>
-              · Принимаем PCM: <b>{{ audioMode === 'worklet' ? 'AudioWorklet' : 'ScriptProcessor' }}</b>
-            </div>
-          </template>
-        </el-alert>
+        />
 
-        <!-- Шаг 1: активировать звук (если ctx suspended) -->
+        <!-- Шаг: разрешить звук в браузере -->
         <el-card v-if="audioCtxState !== 'running'" shadow="never" class="step-card warning">
           <div class="step-head">
-            <span class="step-num">1</span>
-            <b>Активируйте звук</b>
-            <el-tag type="warning" size="small">обязательно</el-tag>
+            <span class="step-num">!</span>
+            <b>Сначала разрешите звук</b>
           </div>
           <div class="step-desc">
-            Браузер требует клик пользователя перед воспроизведением. Без него вы ничего не услышите.
+            Браузер не воспроизводит звук без клика. Нажмите кнопку — и вы услышите собеседника.
           </div>
           <el-button type="warning" :icon="Headset" @click="resumeAudio">
-            Активировать звук
+            Включить звук
           </el-button>
         </el-card>
 
-        <!-- Карточка прослушки звонящего -->
+        <!-- Я слышу собеседника -->
         <el-card shadow="never" class="step-card">
           <div class="step-head">
-            <span class="step-num">2</span>
-            <b>Слушать звонящего</b>
+            <span class="step-num">1</span>
+            <b>Я слышу собеседника</b>
             <el-tag :type="audioCtxState === 'running' ? 'success' : 'info'" size="small">
-              {{ audioCtxState === 'running' ? 'идёт' : 'ждёт активации' }}
+              {{ audioCtxState === 'running' ? 'звук идёт' : 'звук выключен' }}
             </el-tag>
           </div>
           <div class="step-desc">
-            Аудио идёт прямо в наушники. Кнопка «Проверить колонки» проиграет 1с тон 440 Гц —
-            если слышно, прослушка точно работает на стороне браузера.
+            Голос собеседника поступает в ваши наушники или колонки.
+            Не уверены, что звук работает? Нажмите «Проверить колонки» —
+            должен прозвучать короткий сигнал.
           </div>
           <el-button @click="playTestTone" :icon="VideoPlay">Проверить колонки</el-button>
           <div class="step-hint">
+            <span class="hint-text">Если слышен только шум вместо голоса —</span>
             <el-radio-group v-model="endian" size="small">
-              <el-radio-button value="le">Little-endian</el-radio-button>
-              <el-radio-button value="be">Big-endian</el-radio-button>
+              <el-radio-button value="le">Формат A</el-radio-button>
+              <el-radio-button value="be">Формат B</el-radio-button>
             </el-radio-group>
-            <span class="hint-text">
-              Если вместо речи слышен шум — переключите порядок байт.
-            </span>
+            <span class="hint-text">попробуйте переключить.</span>
           </div>
         </el-card>
 
-        <!-- Карточка говорить в микрофон -->
+        <!-- Я говорю собеседнику -->
         <el-card shadow="never" class="step-card">
           <div class="step-head">
-            <span class="step-num">3</span>
-            <b>Говорить со звонящим</b>
-            <el-tag v-if="micEnabled" type="success" size="small">микрофон активен</el-tag>
+            <span class="step-num">2</span>
+            <b>Я говорю собеседнику</b>
+            <el-tag v-if="micEnabled" type="success" size="small">микрофон включён</el-tag>
             <el-tag v-else type="info" size="small">микрофон выключен</el-tag>
           </div>
           <div class="step-desc">
-            Включите микрофон, и ваш голос пойдёт собеседнику в реальном времени. Нужен HTTPS.
+            Включите микрофон — собеседник услышит вас в реальном времени.
+            Браузер один раз спросит разрешение на доступ к микрофону.
           </div>
           <el-button
             :type="micEnabled ? 'success' : 'primary'"
@@ -124,15 +117,16 @@
           </el-button>
         </el-card>
 
-        <!-- Карточка подсунуть запись -->
+        <!-- Включить мелодию для собеседника -->
         <el-card shadow="never" class="step-card">
           <div class="step-head">
-            <span class="step-num">4</span>
-            <b>Подсунуть запись собеседнику</b>
+            <span class="step-num">3</span>
+            <b>Включить мелодию для собеседника</b>
             <el-tag v-if="currentPlayback" type="success" size="small">играет</el-tag>
           </div>
           <div class="step-desc">
-            Выберите мелодию из библиотеки — собеседник услышит её, мы тоже услышим (через прослушку).
+            Включите любую запись из библиотеки — собеседник услышит её на линии.
+            Вы услышите её одновременно вместе с ним.
           </div>
           <el-select
             v-model="selectedMelody"
@@ -155,7 +149,7 @@
             :disabled="!selectedMelody || !!currentPlayback"
             @click="playSelected"
           >
-            Воспроизвести собеседнику
+            Включить мелодию
           </el-button>
           <el-button
             type="warning"
@@ -163,12 +157,13 @@
             :disabled="!currentPlayback"
             @click="stopPlayback"
           >
-            Остановить
+            Выключить мелодию
           </el-button>
         </el-card>
 
         <div class="bottom-actions">
-          <el-button type="danger" plain @click="disconnect">Завершить прослушку</el-button>
+          <span class="conn-stat">Получено звука: {{ formatBytes(bytesReceived) }}</span>
+          <el-button type="danger" plain @click="disconnect">Положить трубку</el-button>
         </div>
       </div>
 
@@ -413,8 +408,8 @@ const ensurePlaybackPipeline = async () => {
     audioMode.value = 'script'
     if (!isSecureContext()) {
       lastError.value =
-        'Сайт открыт по HTTP — микрофон работать не будет (нужен HTTPS). ' +
-        'Прослушка работает в режиме совместимости.'
+        'Микрофон в этом окне работать не будет — нужно открыть страницу через защищённое соединение. ' +
+        'Слушать собеседника можно как обычно.'
     }
   }
 }
@@ -452,20 +447,20 @@ const toggleMic = async () => {
   // secure context. Покажем понятную ошибку, не пытаясь упасть на исключении.
   if (!isSecureContext()) {
     lastError.value =
-      'Микрофон доступен только при подключении по HTTPS. ' +
-      'Откройте сайт по адресу https://… или используйте localhost.'
-    notifications.warning('HTTPS обязателен', 'Микрофон в браузере работает только в защищённом контексте.')
+      'Чтобы включить микрофон, откройте сайт по защищённому соединению ' +
+      '(адрес должен начинаться с https://).'
+    notifications.warning('Нужно защищённое соединение', 'Без него браузер не разрешит доступ к микрофону.')
     return
   }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    lastError.value = 'Браузер не поддерживает доступ к микрофону'
+    lastError.value = 'Браузер не поддерживает микрофон.'
     return
   }
   try {
     await ensureAudio()
     await resumeAudio()
     if (audioMode.value !== 'worklet') {
-      lastError.value = 'Микрофон требует AudioWorklet (доступен только по HTTPS).'
+      lastError.value = 'Микрофон сейчас недоступен — откройте сайт через защищённое соединение.'
       return
     }
     micStream = await navigator.mediaDevices.getUserMedia({
@@ -532,7 +527,7 @@ const playTestTone = async () => {
     buf[i] = 0.3 * Math.sin(2 * Math.PI * 440 * i / sr)
   }
   pushPcmToPlayer(buf)
-  notifications.info('Тест', 'Должен прозвучать сигнал ~1 секунду 440 Гц')
+  notifications.info('Проверка звука', 'Должен прозвучать короткий сигнал около секунды.')
 }
 
 const resumeAudio = async () => {
@@ -736,7 +731,12 @@ onUnmounted(() => {
 .bottom-actions {
   margin-top: 16px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+}
+.conn-stat {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 .actions-row {
   display: flex;
