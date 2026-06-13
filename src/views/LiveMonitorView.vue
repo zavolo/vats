@@ -89,7 +89,7 @@
         style="margin-top: 8px; justify-content: flex-end"
       />
 
-      <div v-else class="live-panel">
+      <div v-if="connected" class="live-panel">
         <el-alert
           :title="`Вы на линии: ${channelId}`"
           type="success"
@@ -946,7 +946,13 @@ onUnmounted(() => {
 }
 .step-card.warning {
   border-color: var(--el-color-warning);
-  background: var(--el-color-warning-light-9);
+  background: #fdf6ec;
+}
+/* На светло-жёлтом фоне форсируем тёмный текст (иначе в тёмной теме
+   текст светлый и его не видно). */
+.step-card.warning :deep(b),
+.step-card.warning .step-desc {
+  color: #7a5300 !important;
 }
 .step-head {
   display: flex;

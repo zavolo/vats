@@ -24,8 +24,20 @@
 
       <div class="quick-filters">
         <el-checkbox v-model="filters.unreadOnly" @change="loadSMS" size="small">Только непрочитанные</el-checkbox>
+        <el-checkbox
+          v-if="unreadOnPageCount > 0"
+          :model-value="allUnreadSelected"
+          :indeterminate="someUnreadSelected"
+          @change="toggleSelectAllUnread"
+          size="small"
+        >
+          Выбрать все непрочитанные ({{ unreadOnPageCount }})
+        </el-checkbox>
         <el-button v-if="unreadSelectedCount > 0" type="success" size="small" @click="markSelectedRead">
-          Прочитать ({{ unreadSelectedCount }})
+          Прочитать выбранные ({{ unreadSelectedCount }})
+        </el-button>
+        <el-button v-if="unreadCount > 0" type="primary" plain size="small" @click="markAllRead">
+          Прочитать все ({{ unreadCount }})
         </el-button>
       </div>
 
@@ -234,6 +246,34 @@ const updateSelection = () => {
 const unreadSelectedCount = computed(() => {
   return messages.value.filter(m => m.selected && !m.is_read && m.direction === 'incoming').length
 })
+
+// Непрочитанные входящие на текущей странице
+const unreadOnPage = computed(() =>
+  messages.value.filter(m => !m.is_read && m.direction === 'incoming')
+)
+const unreadOnPageCount = computed(() => unreadOnPage.value.length)
+const allUnreadSelected = computed(() =>
+  unreadOnPageCount.value > 0 && unreadOnPage.value.every(m => m.selected)
+)
+const someUnreadSelected = computed(() =>
+  unreadOnPage.value.some(m => m.selected) && !allUnreadSelected.value
+)
+
+const toggleSelectAllUnread = (checked) => {
+  unreadOnPage.value.forEach(m => { m.selected = !!checked })
+  updateSelection()
+}
+
+const markAllRead = async () => {
+  try {
+    const r = await apiClient.post('/sms/mark-all-read')
+    notifications.success('Готово', `Прочитано: ${r.data.updated}`)
+    await loadSMS()
+    await loadUnreadCount()
+  } catch (error) {
+    notifications.error('Ошибка', 'Не удалось отметить все сообщения')
+  }
+}
 
 const markSelectedRead = async () => {
   const unreadIds = messages.value
