@@ -77,6 +77,16 @@
               </el-icon>
             </el-button>
             <el-button
+              type="primary"
+              size="small"
+              circle
+              :loading="downloadingAudio[call.id]"
+              @click="downloadRecording(call)"
+              title="Скачать запись"
+            >
+              <el-icon v-if="!downloadingAudio[call.id]"><Download /></el-icon>
+            </el-button>
+            <el-button
               type="danger"
               size="small"
               circle
@@ -107,7 +117,7 @@
 
 <script setup>
 import { ref, onMounted, onActivated, onUnmounted } from 'vue'
-import { Refresh, Phone, Right, VideoPlay, VideoPause, Delete } from '@element-plus/icons-vue'
+import { Refresh, Phone, Right, VideoPlay, VideoPause, Delete, Download } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useNotifications } from '@/composables/useNotifications'
 import apiClient from '@/api/client'
@@ -124,6 +134,7 @@ const currentPlaying = ref(null)
 const audioRefs = ref({})
 const audioBlobUrls = ref({})
 const loadingAudio = ref({})
+const downloadingAudio = ref({})
 
 const loadCalls = async () => {
   try {
@@ -272,6 +283,43 @@ const onAudioError = (callId) => {
     delete audioBlobUrls.value[callId]
   }
   notifications.error('Ошибка воспроизведения', 'Не удалось воспроизвести запись. Формат не поддерживается.')
+}
+
+const downloadRecording = async (call) => {
+  if (downloadingAudio.value[call.id]) return
+  downloadingAudio.value[call.id] = true
+  try {
+    const response = await apiClient.get(`/calls/recording/${call.id}`, {
+      responseType: 'blob',
+    })
+    // Имя файла берём из заголовка Content-Disposition если есть,
+    // иначе генерим по дате звонка.
+    let filename = ''
+    const cd = response.headers['content-disposition'] || response.headers['Content-Disposition']
+    if (cd) {
+      const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      if (m) filename = decodeURIComponent(m[1])
+    }
+    if (!filename) {
+      const dt = call.started_at ? new Date(call.started_at).toISOString().replace(/[:.]/g, '').slice(0, 15) : `call_${call.id}`
+      const parties = [call.caller_number, call.called_number].filter(Boolean).join('_').replace(/[^a-zA-Z0-9+_-]/g, '_')
+      filename = `${dt}_${call.call_type || 'call'}_${parties || call.id}.wav`
+    }
+    const blob = new Blob([response.data], { type: 'audio/wav' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch (error) {
+    const detail = await extractErrorDetail(error)
+    notifications.error('Не удалось скачать', detail || 'Сервер не вернул запись')
+  } finally {
+    downloadingAudio.value[call.id] = false
+  }
 }
 
 const deleteRecording = async (call) => {
