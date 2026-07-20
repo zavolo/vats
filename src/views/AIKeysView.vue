@@ -123,9 +123,13 @@
           <el-input-number v-model="addForm.priority" :min="0" :max="100" />
         </el-form-item>
         <el-form-item v-if="validateResult">
-          <el-tag :type="validateResult.valid ? 'success' : 'danger'">
-            {{ validateResult.valid ? 'Ключ рабочий' : validateResult.reason }}
-          </el-tag>
+          <el-alert
+            :type="validateResult.valid ? 'success' : 'error'"
+            :title="validateResult.valid ? 'Ключ рабочий' : validateResult.reason"
+            :closable="false"
+            show-icon
+            class="validate-alert"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -397,6 +401,15 @@ onBeforeUnmount(() => clearInterval(cooldownTimer))
   display: flex;
   align-items: center;
   gap: 4px;
+}
+/* результат проверки ключа — на всю ширину формы, текст переносится */
+.validate-alert {
+  width: 100%;
+}
+.validate-alert :deep(.el-alert__title) {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
 }
 .key-cell code {
   font-size: 12px;
