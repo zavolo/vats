@@ -145,6 +145,14 @@
                 <el-icon><Operation /></el-icon>
                 <template #title><span>IVR & Роутинг</span></template>
               </el-menu-item>
+              <el-menu-item index="/secretary" v-show="canReadSecretary">
+                <el-icon><Service /></el-icon>
+                <template #title><span>Секретарь</span></template>
+              </el-menu-item>
+              <el-menu-item index="/ai-keys" v-show="canReadAIKeys">
+                <el-icon><Key /></el-icon>
+                <template #title><span>AI Ключи</span></template>
+              </el-menu-item>
               <el-menu-item index="/melodies">
                 <el-icon><Microphone /></el-icon>
                 <template #title><span>Мелодии</span></template>
@@ -199,7 +207,7 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissionsStore } from '@/stores/permissions'
-import { User, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard, Setting, Operation, Warning, Message, Headset, Microphone, Promotion, Bell, BellFilled, CircleCheck, CircleClose, InfoFilled, Close } from '@element-plus/icons-vue'
+import { User, SwitchButton, Wallet, ArrowDown, HomeFilled, Phone, Connection, UserFilled, Expand, OfficeBuilding, Tickets, CreditCard, Setting, Operation, Warning, Message, Headset, Microphone, Promotion, Bell, BellFilled, CircleCheck, CircleClose, InfoFilled, Close, Service, Key } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 const router = useRouter()
 const route = useRoute()
@@ -231,6 +239,8 @@ const canReadUsers = computed(() => permissionsStore.isRoot || permissionsStore.
 const canReadCompanies = computed(() => permissionsStore.isRoot) // только root
 const canReadSIP = computed(() => permissionsStore.isRoot || permissionsStore.isAdmin)
 const canReadIVR = computed(() => permissionsStore.isRoot || permissionsStore.isAdmin)
+const canReadSecretary = computed(() => permissionsStore.isRoot || permissionsStore.isAdmin)
+const canReadAIKeys = computed(() => permissionsStore.isRoot) // только root управляет AI-ключами
 const canReadTariffs = computed(() => permissionsStore.isRoot) // только root
 const canReadPayments = computed(() => permissionsStore.isRoot || permissionsStore.isAdmin)
 const canReadAsterisk = computed(() => permissionsStore.isRoot)

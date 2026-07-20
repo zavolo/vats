@@ -51,6 +51,20 @@ const router = createRouter({
           meta: { permission: { resource: 'ivr', action: 'read' } }
         },
         {
+          path: 'secretary',
+          name: 'secretary',
+          component: () => import('@/views/SecretaryView.vue'),
+          // root/admin: у admin есть ivr-права, у user нет — бэкенд тоже проверяет
+          meta: { permission: { resource: 'ivr', action: 'read' } }
+        },
+        {
+          path: 'ai-keys',
+          name: 'ai-keys',
+          component: () => import('@/views/AIKeysView.vue'),
+          // только root (companies/create есть только у root)
+          meta: { permission: { resource: 'companies', action: 'create' } }
+        },
+        {
           path: 'melodies',
           name: 'melodies',
           component: () => import('@/views/MelodiesView.vue')
