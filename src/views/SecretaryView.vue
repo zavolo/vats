@@ -249,10 +249,11 @@ const playDemo = async () => {
     demoAudio.onended = () => URL.revokeObjectURL(url)
     await demoAudio.play()
   } catch (e) {
+    const detail = e.response?.data?.detail
     if (e.response?.status === 409) {
-      notifications.warning('Нет ключей', 'Добавьте рабочий AI-ключ в разделе «AI Ключи»')
+      notifications.warning('Демо недоступно', detail || 'Добавьте рабочий AI-ключ в разделе «AI Ключи»')
     } else {
-      notifications.error('Ошибка', 'Не удалось озвучить демо голоса')
+      notifications.error('Не удалось озвучить демо', detail || 'Попробуйте позже')
     }
   } finally {
     demoLoading.value = false

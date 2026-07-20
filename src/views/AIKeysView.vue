@@ -83,7 +83,7 @@
           <template #default="{ row }">
             <el-tag v-if="!row.enabled" type="danger" size="small">отключён</el-tag>
             <el-tag v-else-if="row.cooldown_left > 0" type="warning" size="small">
-              кулдаун {{ row.cooldown_left }}с
+              недоступен ({{ fmtCooldown(row.cooldown_left) }})
             </el-tag>
             <el-tag v-else type="success" size="small">активен</el-tag>
             <div v-if="row.last_error" class="key-error">{{ row.last_error }}</div>
@@ -326,6 +326,8 @@ const deleteKey = async (row) => {
     notifications.error('Ошибка', 'Не удалось удалить ключ')
   }
 }
+
+const fmtCooldown = (s) => (s >= 60 ? `${Math.ceil(s / 60)} мин` : `${s} с`)
 
 const formatDate = (iso) => {
   try {
