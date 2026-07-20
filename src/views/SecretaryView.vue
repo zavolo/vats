@@ -27,10 +27,8 @@
               </el-select>
             </el-form-item>
             <el-form-item label="Приветствие">
-              <el-input
-                v-model="config.greeting" type="textarea" :rows="2"
-                placeholder="Здравствуйте! Это ассистент Кирилла, он сейчас не может ответить. Представьтесь, пожалуйста, и расскажите, по какому вы вопросу."
-              />
+              <el-input v-model="config.greeting" type="textarea" :rows="2" />
+              <span class="hint">чем секретарь начнёт разговор; пусто — представится сам</span>
             </el-form-item>
             <el-form-item label="Доп. инструкции">
               <el-input
@@ -60,16 +58,17 @@
               <span class="hint">тактично просить спамеров больше не звонить</span>
             </el-form-item>
 
-            <el-divider content-position="left">Модель</el-divider>
-            <el-form-item label="Модель OpenAI">
-              <el-select v-model="config.model" style="width: 260px" allow-create filterable>
-                <el-option v-for="m in meta.models" :key="m" :label="m" :value="m" />
-              </el-select>
-              <span class="hint">mini ≈ $0.016/мин, полная ≈ $0.05/мин</span>
-            </el-form-item>
-            <el-form-item label="Макс. длительность, сек">
-              <el-input-number v-model="config.max_duration_sec" :min="30" :max="600" :step="30" />
-            </el-form-item>
+            <template v-if="isRoot">
+              <el-divider content-position="left">Технические настройки</el-divider>
+              <el-form-item label="Модель">
+                <el-select v-model="config.model" style="width: 260px" allow-create filterable>
+                  <el-option v-for="m in meta.models" :key="m" :label="m" :value="m" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Макс. длительность, сек">
+                <el-input-number v-model="config.max_duration_sec" :min="30" :max="600" :step="30" />
+              </el-form-item>
+            </template>
 
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="saveConfig">Сохранить</el-button>
@@ -149,12 +148,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
 import { useNotifications } from '@/composables/useNotifications'
+import { usePermissionsStore } from '@/stores/permissions'
 
 const notifications = useNotifications()
+const permissionsStore = usePermissionsStore()
+const isRoot = computed(() => permissionsStore.isRoot)
 
 const activeTab = ref('settings')
 const loading = ref(false)
