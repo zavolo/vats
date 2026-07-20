@@ -68,7 +68,8 @@
               v-if="config.answer_all && currentAction === 'manual'"
               type="info" :closable="false" show-icon
               style="margin: 0 0 12px 190px; max-width: 560px"
-              title="Заменит текущий ручной приём (manual). Слушать и перехватывать звонок ИИ можно в разделе «Прослушка»."
+              title="Секретарь будет отвечать вместо вас"
+              description="Сейчас входящие вы принимаете вручную. Теперь на все звонки будет отвечать ассистент. Вы всегда сможете послушать разговор и подключиться к нему сами в разделе «Прослушка»."
             />
             <template v-if="!config.answer_all">
               <el-form-item label="Если долго не отвечаете">
