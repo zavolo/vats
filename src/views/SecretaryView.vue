@@ -251,8 +251,8 @@ const saving = ref(false)
 const currentAction = ref(null)  // текущий action_type компании (manual/forward/…)
 const meta = ref({
   voices: [
-    { id: 'marin', label: 'Марина — женский, спокойный и деловой' },
-    { id: 'cedar', label: 'Кирилл — мужской, тёплый и уверенный' },
+    { id: 'marin', label: 'Женский — спокойный, деловой' },
+    { id: 'cedar', label: 'Мужской — тёплый, уверенный' },
   ],
   models: ['gpt-realtime-mini', 'gpt-realtime'],
   demo_available: false,
