@@ -438,42 +438,67 @@ onBeforeUnmount(() => {
   color: var(--el-text-color-secondary);
 }
 .chat {
-  max-height: 55vh;
+  max-height: 60vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  padding: 4px 2px;
 }
 .chat-meta {
+  align-self: center;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+  padding: 3px 10px;
+  border-radius: 10px;
   margin-bottom: 4px;
 }
 .chat-msg {
-  max-width: 85%;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: var(--el-fill-color-light);
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
+/* Секретарь — синий пузырь слева, белый текст (читаемо в любой теме) */
 .chat-msg.secretary {
   align-self: flex-start;
-  background: var(--el-color-primary-light-9);
+  background: var(--el-color-primary);
+  border-bottom-left-radius: 4px;
 }
+.chat-msg.secretary .chat-role {
+  color: rgba(255, 255, 255, 0.85);
+}
+.chat-msg.secretary .chat-text {
+  color: #fff;
+}
+/* Звонящий — нейтральный пузырь справа */
 .chat-msg.caller {
   align-self: flex-end;
-  background: var(--el-fill-color);
+  background: var(--el-fill-color-darker);
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.caller .chat-role {
+  color: var(--el-text-color-secondary);
+}
+.chat-msg.caller .chat-text {
+  color: var(--el-text-color-primary);
 }
 .chat-role {
   font-size: 11px;
   font-weight: 600;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
 }
 .chat-text {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.5;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 .chat-audio {
-  margin-top: 10px;
+  margin-top: 12px;
+  position: sticky;
+  bottom: 0;
 }
 </style>
