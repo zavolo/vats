@@ -22,9 +22,21 @@
               <el-input v-model="config.persona_name" placeholder="Например: Алиса" maxlength="100" />
             </el-form-item>
             <el-form-item label="Голос">
-              <el-select v-model="config.voice" style="width: 220px">
-                <el-option v-for="v in meta.voices" :key="v" :label="v" :value="v" />
-              </el-select>
+              <div class="voice-row">
+                <el-select v-model="config.voice" style="width: 330px">
+                  <el-option v-for="v in meta.voices" :key="v.id" :label="v.label" :value="v.id" />
+                </el-select>
+                <el-button
+                  v-if="meta.demo_available"
+                  :loading="demoLoading" :icon="VideoPlay"
+                  @click="playDemo"
+                >
+                  Прослушать
+                </el-button>
+              </div>
+              <span v-if="!meta.demo_available" class="hint">
+                добавьте рабочий AI-ключ, чтобы прослушать голоса
+              </span>
             </el-form-item>
             <el-form-item label="Приветствие">
               <el-input v-model="config.greeting" type="textarea" :rows="2" />
@@ -161,8 +173,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onActivated } from 'vue'
-import { Refresh } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, onActivated, onBeforeUnmount } from 'vue'
+import { Refresh, VideoPlay } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
 import { useNotifications } from '@/composables/useNotifications'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -174,7 +186,14 @@ const isRoot = computed(() => permissionsStore.isRoot)
 const activeTab = ref('settings')
 const loading = ref(false)
 const saving = ref(false)
-const meta = ref({ voices: ['marin', 'cedar', 'alloy', 'ash', 'coral', 'echo', 'sage', 'shimmer', 'verse'], models: ['gpt-realtime-mini', 'gpt-realtime'] })
+const meta = ref({
+  voices: [
+    { id: 'marin', label: 'Марина — женский, спокойный и деловой' },
+    { id: 'cedar', label: 'Кирилл — мужской, тёплый и уверенный' },
+  ],
+  models: ['gpt-realtime-mini', 'gpt-realtime'],
+  demo_available: false,
+})
 const config = ref({
   enabled: false,
   persona_name: 'Ассистент',
@@ -207,6 +226,37 @@ const loadMeta = async () => {
     const { data } = await apiClient.get('/secretary/meta')
     meta.value = data
   } catch { /* дефолты уже на месте */ }
+}
+
+// -------- демка голоса --------
+const demoLoading = ref(false)
+let demoAudio = null
+
+const playDemo = async () => {
+  demoLoading.value = true
+  try {
+    if (demoAudio) {
+      demoAudio.pause()
+      demoAudio = null
+    }
+    const response = await apiClient.post(
+      '/secretary/voice-demo',
+      { voice: config.value.voice, text: config.value.greeting || null },
+      { responseType: 'blob', timeout: 45000 }
+    )
+    const url = URL.createObjectURL(new Blob([response.data], { type: 'audio/mpeg' }))
+    demoAudio = new Audio(url)
+    demoAudio.onended = () => URL.revokeObjectURL(url)
+    await demoAudio.play()
+  } catch (e) {
+    if (e.response?.status === 409) {
+      notifications.warning('Нет ключей', 'Добавьте рабочий AI-ключ в разделе «AI Ключи»')
+    } else {
+      notifications.error('Ошибка', 'Не удалось озвучить демо голоса')
+    }
+  } finally {
+    demoLoading.value = false
+  }
 }
 
 const loadConfig = async () => {
@@ -308,6 +358,9 @@ onActivated(() => {
   loadConfig()
   loadDialogs()
 })
+onBeforeUnmount(() => {
+  if (demoAudio) demoAudio.pause()
+})
 </script>
 
 <style scoped>
@@ -327,6 +380,11 @@ onActivated(() => {
   margin-left: 10px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+.voice-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 .spam-tactic {
   display: flex;
