@@ -194,7 +194,11 @@ const testProxy = async () => {
     const { data } = await apiClient.post('/ai-keys/settings/test', { proxy_url: proxyUrl.value })
     proxyResult.value = data
   } catch (e) {
-    proxyResult.value = { ok: false, message: 'Не удалось выполнить проверку' }
+    if (e.response?.status === 401) {
+      proxyResult.value = { ok: false, message: 'Сессия истекла — войдите заново и повторите проверку' }
+    } else {
+      proxyResult.value = { ok: false, message: e.response?.data?.detail || 'Не удалось выполнить проверку' }
+    }
   } finally {
     proxyTesting.value = false
   }
