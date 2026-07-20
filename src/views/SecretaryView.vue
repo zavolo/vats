@@ -9,6 +9,16 @@
         </div>
       </template>
 
+      <el-alert
+        v-if="config.enabled && config.answer_all && currentAction === 'manual'"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 12px"
+        title="Секретарь заменит ручной приём звонков"
+        description="Сейчас у вас включён ручной режим (звонок держится для оператора в «Прослушке»). Пока секретарь отвечает на все звонки, трубку на входящие берёт ИИ, а не оператор. Вмешаться в разговор можно из «Прослушки» — кнопки «Слушать» и «Перехватить»."
+      />
+
       <el-tabs v-model="activeTab" type="border-card">
         <!-- ============================= НАСТРОЙКИ ============================= -->
         <el-tab-pane label="Настройки" name="settings">
@@ -54,6 +64,12 @@
               <el-switch v-model="config.answer_all" />
               <span class="hint">секретарь снимает трубку сразу, телефон не звонит</span>
             </el-form-item>
+            <el-alert
+              v-if="config.answer_all && currentAction === 'manual'"
+              type="info" :closable="false" show-icon
+              style="margin: 0 0 12px 190px; max-width: 560px"
+              title="Заменит текущий ручной приём (manual). Слушать и перехватывать звонок ИИ можно в разделе «Прослушка»."
+            />
             <template v-if="!config.answer_all">
               <el-form-item label="Если долго не отвечаете">
                 <el-switch v-model="config.on_no_answer" />
@@ -186,6 +202,7 @@ const isRoot = computed(() => permissionsStore.isRoot)
 const activeTab = ref('settings')
 const loading = ref(false)
 const saving = ref(false)
+const currentAction = ref(null)  // текущий action_type компании (manual/forward/…)
 const meta = ref({
   voices: [
     { id: 'marin', label: 'Марина — женский, спокойный и деловой' },
@@ -264,8 +281,9 @@ const loadConfig = async () => {
   loading.value = true
   try {
     const { data } = await apiClient.get('/secretary/config')
+    currentAction.value = data.current_action ?? null
     if (data.exists) {
-      const { exists, id, company_id, ...rest } = data
+      const { exists, id, company_id, current_action, ...rest } = data
       config.value = { ...config.value, ...rest }
     }
   } catch (e) {
