@@ -100,6 +100,40 @@
               </el-radio-group>
             </el-form-item>
 
+            <el-divider content-position="left">Музыка (Яндекс Музыка)</el-divider>
+            <el-form-item label="Аккаунт">
+              <div v-if="config.yandex_linked" class="ym-linked">
+                <el-tag type="success" size="small">
+                  Привязан{{ config.yandex_login ? ': ' + config.yandex_login : '' }}
+                </el-tag>
+                <el-button size="small" plain type="danger" @click="unlinkYandex">Отвязать</el-button>
+              </div>
+              <div v-else class="ym-link">
+                <el-button
+                  v-if="!linking" size="small" type="primary" plain
+                  :icon="Headset" @click="startYandexLink"
+                >
+                  Привязать аккаунт
+                </el-button>
+                <div v-else class="ym-code-box">
+                  <template v-if="linkCode">
+                    Откройте
+                    <a :href="linkUrl" target="_blank" rel="noopener">{{ linkUrl }}</a>
+                    и введите код:
+                    <b class="ym-code">{{ linkCode }}</b>
+                    <el-button size="small" text :icon="CopyDocument" @click="copyCode" />
+                    <div class="ym-waiting">
+                      <el-icon class="is-loading"><Loading /></el-icon>
+                      ждём подтверждения…
+                      <el-button size="small" text @click="cancelYandexLink">отмена</el-button>
+                    </div>
+                  </template>
+                  <span v-else>Запрашиваю код…</span>
+                </div>
+              </div>
+              <span class="hint">секретарь сможет включать треки собеседнику (удержание, троллинг спамеров)</span>
+            </el-form-item>
+
             <template v-if="isRoot">
               <el-divider content-position="left">Технические настройки</el-divider>
               <el-form-item label="Модель">
@@ -202,7 +236,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onActivated, onBeforeUnmount } from 'vue'
-import { Refresh, VideoPlay, Microphone } from '@element-plus/icons-vue'
+import { Refresh, VideoPlay, Microphone, Headset, CopyDocument, Loading } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
 import { useNotifications } from '@/composables/useNotifications'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -235,6 +269,8 @@ const config = ref({
   on_offline: true,
   antispam: true,
   spam_tactic: 'polite',
+  yandex_linked: false,
+  yandex_login: null,
   model: 'gpt-realtime-mini',
   max_duration_sec: 180,
 })
@@ -314,6 +350,80 @@ const saveConfig = async () => {
     notifications.error('Ошибка', 'Не удалось сохранить настройки')
   } finally {
     saving.value = false
+  }
+}
+
+// -------- привязка Яндекс Музыки --------
+const linking = ref(false)
+const linkCode = ref('')
+const linkUrl = ref('https://ya.ru/device')
+let linkTimer = null
+
+const startYandexLink = async () => {
+  linking.value = true
+  linkCode.value = ''
+  try {
+    const { data } = await apiClient.post('/secretary/yandex/link/start')
+    linkCode.value = data.code || ''
+    linkUrl.value = data.url || 'https://ya.ru/device'
+    pollYandexLink()
+  } catch (e) {
+    notifications.error('Ошибка', 'Не удалось начать привязку')
+    linking.value = false
+  }
+}
+
+const pollYandexLink = () => {
+  clearTimeout(linkTimer)
+  linkTimer = setTimeout(async () => {
+    if (!linking.value) return
+    try {
+      const { data } = await apiClient.get('/secretary/yandex/link/status')
+      if (data.status === 'linked') {
+        linking.value = false
+        config.value.yandex_linked = true
+        config.value.yandex_login = data.login || null
+        notifications.success('Готово', 'Аккаунт Яндекс Музыки привязан')
+        return
+      }
+      if (data.status === 'error') {
+        linking.value = false
+        notifications.error('Ошибка привязки', data.error || 'Попробуйте ещё раз')
+        return
+      }
+      if (data.code) {
+        linkCode.value = data.code
+        linkUrl.value = data.url || linkUrl.value
+      }
+      pollYandexLink()
+    } catch {
+      pollYandexLink()
+    }
+  }, 2500)
+}
+
+const cancelYandexLink = async () => {
+  clearTimeout(linkTimer)
+  linking.value = false
+  linkCode.value = ''
+  try { await apiClient.post('/secretary/yandex/unlink') } catch { /* не критично */ }
+}
+
+const copyCode = async () => {
+  try {
+    await navigator.clipboard.writeText(linkCode.value)
+    notifications.success('Скопировано', 'Код в буфере обмена')
+  } catch { /* ignore */ }
+}
+
+const unlinkYandex = async () => {
+  try {
+    await apiClient.post('/secretary/yandex/unlink')
+    config.value.yandex_linked = false
+    config.value.yandex_login = null
+    notifications.success('Готово', 'Аккаунт отвязан')
+  } catch (e) {
+    notifications.error('Ошибка', 'Не удалось отвязать')
   }
 }
 
@@ -403,6 +513,7 @@ onActivated(() => {
 })
 onBeforeUnmount(() => {
   if (demoAudio) demoAudio.pause()
+  clearTimeout(linkTimer)
 })
 </script>
 
@@ -428,6 +539,32 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+.ym-linked {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.ym-code-box {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+}
+.ym-code {
+  font-size: 18px;
+  letter-spacing: 2px;
+  background: var(--el-fill-color);
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin: 0 2px;
+}
+.ym-waiting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
 }
 .spam-tactic {
   display: flex;
