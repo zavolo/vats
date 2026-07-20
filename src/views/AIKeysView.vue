@@ -22,6 +22,29 @@
         description="Достаточно одного рабочего ключа. Если ключей несколько — используется тот, что выше по приоритету, а при сбое система сама переключится на запасной. Нерабочие ключи отключаются автоматически, перегруженные — отдыхают пару минут и пробуются снова."
       />
 
+      <div class="proxy-box">
+        <div class="proxy-title">Прокси для OpenAI</div>
+        <div class="proxy-hint">
+          OpenAI не работает с российских IP. Укажите HTTP-прокси, который выходит
+          в интернет из другой страны — через него пойдут все запросы: звонки
+          секретаря, проверка ключей и демо голосов.
+        </div>
+        <div class="proxy-row">
+          <el-input
+            v-model="proxyUrl" placeholder="http://192.168.3.4:8888"
+            style="max-width: 360px" clearable
+          />
+          <el-button :loading="proxyTesting" @click="testProxy">Проверить</el-button>
+          <el-button type="primary" :loading="proxySaving" @click="saveProxy">Сохранить</el-button>
+        </div>
+        <el-tag
+          v-if="proxyResult" :type="proxyResult.ok ? 'success' : 'danger'"
+          style="margin-top: 8px; height: auto; white-space: normal; padding: 4px 10px"
+        >
+          {{ proxyResult.message }}
+        </el-tag>
+      </div>
+
       <el-skeleton v-if="loading && !keys.length" :rows="4" animated />
       <el-empty v-else-if="!keys.length" description="Ключей пока нет — добавьте первый" />
 
@@ -137,6 +160,45 @@ const addForm = ref({ key: '', label: '', priority: 0 })
 
 // тикаем кулдауны раз в секунду, чтобы бейджи оживали без refresh
 let cooldownTimer = null
+
+// -------- прокси для OpenAI --------
+const proxyUrl = ref('')
+const proxySaving = ref(false)
+const proxyTesting = ref(false)
+const proxyResult = ref(null)
+
+const loadProxy = async () => {
+  try {
+    const { data } = await apiClient.get('/ai-keys/settings')
+    proxyUrl.value = data.proxy_url || ''
+  } catch { /* не критично */ }
+}
+
+const saveProxy = async () => {
+  proxySaving.value = true
+  try {
+    await apiClient.put('/ai-keys/settings', { proxy_url: proxyUrl.value })
+    notifications.success('Сохранено', proxyUrl.value ? 'Прокси применён' : 'Прокси отключён')
+    proxyResult.value = null
+  } catch (e) {
+    notifications.error('Ошибка', e.response?.data?.detail || 'Не удалось сохранить прокси')
+  } finally {
+    proxySaving.value = false
+  }
+}
+
+const testProxy = async () => {
+  proxyTesting.value = true
+  proxyResult.value = null
+  try {
+    const { data } = await apiClient.post('/ai-keys/settings/test', { proxy_url: proxyUrl.value })
+    proxyResult.value = data
+  } catch (e) {
+    proxyResult.value = { ok: false, message: 'Не удалось выполнить проверку' }
+  } finally {
+    proxyTesting.value = false
+  }
+}
 
 const loadKeys = async () => {
   loading.value = true
@@ -273,6 +335,7 @@ const formatDate = (iso) => {
 
 onMounted(() => {
   loadKeys()
+  loadProxy()
   cooldownTimer = setInterval(() => {
     keys.value.forEach(k => {
       if (k.cooldown_left > 0) k.cooldown_left--
@@ -300,6 +363,29 @@ onBeforeUnmount(() => clearInterval(cooldownTimer))
   display: flex;
   gap: 8px;
   align-items: center;
+}
+.proxy-box {
+  border: 1px solid var(--el-border-color);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: var(--el-fill-color-lighter);
+}
+.proxy-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.proxy-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.proxy-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .key-cell {
   display: flex;
