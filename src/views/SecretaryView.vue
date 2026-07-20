@@ -145,8 +145,7 @@
                   Расшифровка
                 </el-button>
                 <el-button
-                  v-if="row.has_recording" size="small" plain
-                  :loading="loadingAudio[row.call_id]"
+                  v-if="row.has_recording" size="small" plain :icon="Microphone"
                   @click="playRecording(row)"
                 >
                   Запись
@@ -181,17 +180,29 @@
           <div class="chat-role">{{ msg.role === 'secretary' ? 'Секретарь' : 'Звонящий' }}</div>
           <div class="chat-text">{{ msg.text }}</div>
         </div>
-        <div v-if="audioUrl" class="chat-audio">
-          <audio :src="audioUrl" controls style="width: 100%" />
-        </div>
       </div>
+
+      <template #footer>
+        <div class="rec-footer">
+          <div v-if="audioUrl" class="rec-player">
+            <audio :src="audioUrl" controls preload="metadata" />
+          </div>
+          <el-button
+            v-else-if="currentTranscript?.has_recording"
+            :icon="VideoPlay" :loading="recLoading" @click="loadCurrentRecording"
+          >
+            Прослушать запись разговора
+          </el-button>
+          <span v-else class="rec-none">Записи разговора нет</span>
+        </div>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onActivated, onBeforeUnmount } from 'vue'
-import { Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { Refresh, VideoPlay, Microphone } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
 import { useNotifications } from '@/composables/useNotifications'
 import { usePermissionsStore } from '@/stores/permissions'
@@ -237,7 +248,7 @@ const transcriptVisible = ref(false)
 const currentTranscript = ref(null)
 const audioUrl = ref(null)
 const audioBlobUrls = ref({})
-const loadingAudio = ref({})
+const recLoading = ref(false)
 
 const loadMeta = async () => {
   try {
@@ -321,7 +332,8 @@ const loadDialogs = async () => {
   }
 }
 
-const openTranscript = async (row) => {
+// Открыть окно расшифровки. withAudio=true — сразу подгрузить запись.
+const openTranscript = async (row, withAudio = false) => {
   audioUrl.value = null
   try {
     const { data } = await apiClient.get(`/secretary/dialogs/${row.id}`)
@@ -329,31 +341,42 @@ const openTranscript = async (row) => {
     transcriptVisible.value = true
   } catch (e) {
     notifications.error('Ошибка', 'Не удалось загрузить расшифровку')
+    return
+  }
+  // запись грузим ОТДЕЛЬНО (не в общем try) — её сбой не должен
+  // мешать показу расшифровки, а плеер появляется только когда готов
+  if (withAudio && currentTranscript.value?.has_recording) {
+    loadCurrentRecording()
   }
 }
 
-const playRecording = async (row) => {
-  loadingAudio.value[row.call_id] = true
+// Кнопка «Запись» в списке — открыть расшифровку и подгрузить аудио.
+const playRecording = (row) => openTranscript(row, true)
+
+// Загрузить запись текущего открытого разговора и показать плеер.
+const loadCurrentRecording = async () => {
+  const t = currentTranscript.value
+  if (!t || !t.call_id) return
+  recLoading.value = true
   try {
-    if (!audioBlobUrls.value[row.call_id]) {
-      const response = await apiClient.get(`/calls/recording/${row.call_id}`, {
+    if (!audioBlobUrls.value[t.call_id]) {
+      const response = await apiClient.get(`/calls/recording/${t.call_id}`, {
         responseType: 'blob',
       })
-      const blob = new Blob([response.data], { type: 'audio/wav' })
-      audioBlobUrls.value[row.call_id] = URL.createObjectURL(blob)
+      audioBlobUrls.value[t.call_id] = URL.createObjectURL(
+        new Blob([response.data], { type: 'audio/wav' })
+      )
     }
-    // открываем расшифровку с плеером внизу
-    await openTranscript(row)
-    audioUrl.value = audioBlobUrls.value[row.call_id]
+    audioUrl.value = audioBlobUrls.value[t.call_id]
   } catch (e) {
     if (e.response?.status === 404) {
       notifications.info('Запись недоступна', 'Аудио для этого звонка не сохранилось')
-      row.has_recording = false
+      if (currentTranscript.value) currentTranscript.value.has_recording = false
     } else {
       notifications.error('Ошибка', 'Не удалось загрузить запись')
     }
   } finally {
-    loadingAudio.value[row.call_id] = false
+    recLoading.value = false
   }
 }
 
@@ -496,9 +519,21 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.chat-audio {
-  margin-top: 12px;
-  position: sticky;
-  bottom: 0;
+.rec-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rec-player {
+  width: 100%;
+}
+.rec-player audio {
+  width: 100%;
+  height: 40px;
+  display: block;
+}
+.rec-none {
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
 }
 </style>
