@@ -5,7 +5,17 @@
         <div class="card-header">
           <span>История звонков</span>
           <div class="header-actions">
-            <el-select v-model="filters.callType" placeholder="Все типы" clearable @change="loadCalls" size="small" style="width: 130px">
+            <el-input
+              v-model="filters.search"
+              placeholder="Поиск по номеру"
+              clearable
+              size="small"
+              style="width: 200px"
+              :prefix-icon="Search"
+              @input="onSearchInput"
+              @clear="applyFilters"
+            />
+            <el-select v-model="filters.callType" placeholder="Все типы" clearable @change="applyFilters" size="small" style="width: 130px">
               <el-option label="Все типы" value="" />
               <el-option label="Входящие" value="incoming" />
               <el-option label="Исходящие" value="outgoing" />
@@ -117,7 +127,7 @@
 
 <script setup>
 import { ref, onMounted, onActivated, onUnmounted } from 'vue'
-import { Refresh, Phone, Right, VideoPlay, VideoPause, Delete, Download } from '@element-plus/icons-vue'
+import { Refresh, Phone, Right, VideoPlay, VideoPause, Delete, Download, Search } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { useNotifications } from '@/composables/useNotifications'
 import apiClient from '@/api/client'
@@ -126,8 +136,21 @@ const notifications = useNotifications()
 
 const calls = ref([])
 const loading = ref(false)
-const filters = ref({ callType: '' })
+const filters = ref({ callType: '', search: '' })
 const pagination = ref({ page: 1, limit: 20, total: 0 })
+
+// поиск с задержкой (debounce) — не дёргаем бэкенд на каждый символ
+let searchTimer = null
+const onSearchInput = () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(applyFilters, 350)
+}
+
+// смена фильтра/поиска всегда сбрасывает на первую страницу
+const applyFilters = () => {
+  pagination.value.page = 1
+  loadCalls()
+}
 
 // Для воспроизведения записей
 const currentPlaying = ref(null)
@@ -146,6 +169,9 @@ const loadCalls = async () => {
     }
     if (filters.value.callType) {
       params.call_type = filters.value.callType
+    }
+    if (filters.value.search && filters.value.search.trim()) {
+      params.search = filters.value.search.trim()
     }
     const response = await apiClient.get('/calls', {
       params,
