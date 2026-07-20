@@ -69,8 +69,14 @@
             <code class="channel-name">{{ row.channel }}</code>
           </template>
         </el-table-column>
-        <el-table-column label="" width="120" align="right">
+        <el-table-column label="" width="200" align="right">
           <template #default="{ row }">
+            <el-tag
+              v-if="isSecretaryChannel(row.channel)"
+              type="warning" size="small" effect="light" style="margin-right: 6px"
+            >
+              <el-icon style="vertical-align: middle; margin-right: 2px"><Service /></el-icon>секретарь
+            </el-tag>
             <el-button type="primary" size="small" @click.stop="connectTo(row.channel)">
               Слушать
             </el-button>
@@ -95,6 +101,27 @@
           type="success"
           show-icon
           :closable="false"
+          style="margin-bottom: 12px"
+        />
+
+        <!-- Перехват звонка у секретаря -->
+        <el-card v-if="isSecretaryCall && !takenOver" shadow="never" class="step-card takeover">
+          <div class="step-head">
+            <span class="step-num robot"><el-icon><Service /></el-icon></span>
+            <b>Сейчас отвечает секретарь</b>
+          </div>
+          <div class="step-desc">
+            Вы слушаете разговор ИИ со звонящим. Нажмите «Перехватить», чтобы
+            отключить секретаря и продолжить разговор самому — звонящий переключится на вас.
+          </div>
+          <el-button type="danger" :icon="Phone" :loading="takingOver" @click="doTakeover">
+            Перехватить звонок
+          </el-button>
+        </el-card>
+        <el-alert
+          v-if="takenOver"
+          type="success" :closable="false" show-icon
+          title="Звонок перехвачен — секретарь отключён, вы на линии со звонящим"
           style="margin-bottom: 12px"
         />
 
@@ -256,7 +283,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { Refresh, VideoPlay, VideoPause, Headset, Microphone, Phone } from '@element-plus/icons-vue'
+import { Refresh, VideoPlay, VideoPause, Headset, Microphone, Phone, Service } from '@element-plus/icons-vue'
 import apiClient from '@/api/client'
 import { useNotifications } from '@/composables/useNotifications'
 
@@ -308,6 +335,11 @@ const selectedMelody = ref('')
 const melodies = ref([])
 const loadingMelodies = ref(false)
 const micEnabled = ref(false)
+// секретарь: какие каналы сейчас ведёт ИИ + перехват текущего звонка
+const secretaryChannels = ref(new Set())
+const isSecretaryCall = ref(false)
+const takenOver = ref(false)
+const takingOver = ref(false)
 const audioCtxState = ref('—')      // suspended/running — видно пользователю
 const bytesReceived = ref(0)        // счётчик принятых RTP-байт
 // Asterisk slin16 шлёт PCM 16-bit, но порядок байт зависит от версии/сборки
@@ -408,6 +440,22 @@ const loadChannels = async () => {
   } finally {
     loadingChannels.value = false
   }
+  loadSecretaryChannels()
+}
+
+const loadSecretaryChannels = async () => {
+  try {
+    const r = await apiClient.get('/secretary/active-channels')
+    secretaryChannels.value = new Set(r.data.channels || [])
+  } catch { /* нет прав/недоступно — просто не показываем метку */ }
+}
+
+const isSecretaryChannel = (chan) => secretaryChannels.value.has(chan)
+
+const doTakeover = () => {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return
+  takingOver.value = true
+  ws.send(JSON.stringify({ type: 'takeover' }))
 }
 
 const openChannelsStream = () => {
@@ -802,6 +850,9 @@ const connectTo = async (chan) => {
   lastError.value = ''
   connecting.value = true
   bytesReceived.value = 0
+  isSecretaryCall.value = false
+  takenOver.value = false
+  takingOver.value = false
   try {
     await ensureAudio()
     await resumeAudio()
@@ -861,13 +912,23 @@ const disconnect = () => {
 
 const handleControl = (msg) => {
   if (msg.type === 'ready') {
-    notifications.success('Подключено', `Канал ${channelId.value}`)
+    isSecretaryCall.value = !!msg.secretary
+    notifications.success(
+      'Подключено',
+      msg.secretary ? 'Слушаете разговор секретаря' : `Канал ${channelId.value}`
+    )
+  } else if (msg.type === 'taken_over') {
+    takenOver.value = true
+    takingOver.value = false
+    isSecretaryCall.value = false
+    notifications.success('Звонок перехвачен', 'Секретарь отключён — вы на линии')
   } else if (msg.type === 'playing') {
     currentPlayback.value = msg.playback_id
   } else if (msg.type === 'stopped') {
     if (currentPlayback.value === msg.playback_id) currentPlayback.value = null
   } else if (msg.type === 'error' || msg.type === 'command_error') {
     lastError.value = msg.detail || 'Ошибка'
+    takingOver.value = false
     // Если канал больше не существует — сразу освобождаем UI и
     // обновляем список, чтоб не пытаться слушать «привидение».
     if (msg.detail && /не существует|завершён|hangup/i.test(msg.detail)) {
@@ -947,6 +1008,14 @@ onUnmounted(() => {
 .step-card.warning {
   border-color: var(--el-color-warning);
   background: #fdf6ec;
+}
+.step-card.takeover {
+  border-color: var(--el-color-danger);
+  background: var(--el-color-danger-light-9);
+  margin-bottom: 12px;
+}
+.step-num.robot {
+  background: var(--el-color-danger);
 }
 /* На светло-жёлтом фоне форсируем тёмный текст (иначе в тёмной теме
    текст светлый и его не видно). */
