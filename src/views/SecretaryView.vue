@@ -110,7 +110,7 @@
               </div>
               <div v-else class="ym-link">
                 <el-button
-                  v-if="!linking" size="small" type="primary" plain
+                  v-if="!linking" size="small" type="primary"
                   :icon="Headset" @click="startYandexLink"
                 >
                   Привязать аккаунт
