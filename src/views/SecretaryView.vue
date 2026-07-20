@@ -53,9 +53,22 @@
                 <el-switch v-model="config.on_offline" />
               </el-form-item>
             </template>
-            <el-form-item label="Антиспам">
+            <el-divider content-position="left">Спам и мошенники</el-divider>
+            <el-form-item label="Защита от спама">
               <el-switch v-model="config.antispam" />
-              <span class="hint">тактично просить спамеров больше не звонить</span>
+              <span class="hint">секретарь распознаёт рекламу и мошенников и никогда не выдаёт ваши данные</span>
+            </el-form-item>
+            <el-form-item v-if="config.antispam" label="Как отвечать">
+              <el-radio-group v-model="config.spam_tactic" class="spam-tactic">
+                <el-radio value="polite">
+                  <div class="tactic-title">Вежливо отшить</div>
+                  <div class="tactic-hint">попросит больше не звонить и положит трубку</div>
+                </el-radio>
+                <el-radio value="troll">
+                  <div class="tactic-title">Потянуть время</div>
+                  <div class="tactic-hint">«алло… вас не слышно…» — пусть мошенник тратит время на робота, а не на людей</div>
+                </el-radio>
+              </el-radio-group>
             </el-form-item>
 
             <template v-if="isRoot">
@@ -173,6 +186,7 @@ const config = ref({
   on_busy: true,
   on_offline: true,
   antispam: true,
+  spam_tactic: 'polite',
   model: 'gpt-realtime-mini',
   max_duration_sec: 180,
 })
@@ -313,6 +327,28 @@ onActivated(() => {
   margin-left: 10px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+.spam-tactic {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.spam-tactic :deep(.el-radio) {
+  height: auto;
+  align-items: flex-start;
+  margin-right: 0;
+  padding: 4px 0;
+  white-space: normal;
+}
+.tactic-title {
+  font-weight: 500;
+  line-height: 1.3;
+}
+.tactic-hint {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
 }
 .dialogs-toolbar {
   margin-bottom: 12px;
