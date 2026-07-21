@@ -49,8 +49,8 @@
               </span>
             </el-form-item>
             <el-form-item label="Приветствие">
-              <el-input v-model="config.greeting" type="textarea" :rows="2" />
-              <span class="hint">чем секретарь начнёт разговор; пусто — представится сам</span>
+              <el-input v-model="config.greeting" type="textarea" :rows="2" placeholder="Алло" />
+              <span class="hint">чем секретарь снимет трубку; пусто — ответит просто «Алло», по-человечески</span>
             </el-form-item>
             <el-form-item label="Доп. инструкции">
               <el-input
